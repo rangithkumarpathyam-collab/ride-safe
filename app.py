@@ -33,7 +33,7 @@ st.set_page_config(
     page_title="SafeRide AI - Multimodal Emergency Response System",
     page_icon="🚨",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # Custom Styling for Emergency Command Center
@@ -50,24 +50,42 @@ st.markdown("""
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 1.1rem 1.6rem;
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        border: 1px solid #334155;
-        border-radius: 14px;
-        margin-bottom: 1.2rem;
-        box-shadow: 0 4px 25px rgba(0, 0, 0, 0.35);
+        padding: 0.55rem 0.2rem 1.05rem;
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        margin-bottom: 0.35rem;
+        box-shadow: none;
     }
     .brand-title {
-        font-size: 1.65rem;
+        font-size: 1.45rem;
         font-weight: 800;
         letter-spacing: -0.5px;
         color: #f8fafc;
         margin: 0;
     }
     .brand-subtitle {
-        font-size: 0.86rem;
+        font-size: 0.76rem;
         color: #94a3b8;
         margin-top: 3px;
+    }
+    .operator-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        color: #9aa9bf;
+        font-size: 0.68rem;
+        font-weight: 700;
+    }
+    .operator-avatar {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: linear-gradient(145deg, #38bdf8, #2563eb);
+        color: #fff;
+        font-size: 0.75rem;
     }
     .live-pulse {
         display: inline-block;
@@ -153,15 +171,50 @@ st.markdown("""
     }
     .api-dot-green { background: #10b981; box-shadow: 0 0 8px #10b981; }
     .api-dot-yellow { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+
+    /* Quiet operational status strip */
+    .ops-strip {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin: 0 0 1.2rem;
+    }
+    .ops-item {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-height: 48px;
+        padding: 0.65rem 0.85rem;
+        background: rgba(30, 41, 59, 0.72);
+        border: 1px solid rgba(100, 116, 139, 0.28);
+        border-radius: 10px;
+    }
+    .ops-item strong { display: block; color: #e2e8f0; font-size: 0.8rem; }
+    .ops-item span { display: block; color: #94a3b8; font-size: 0.72rem; margin-top: 2px; }
+    .ops-icon {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        background: rgba(56, 189, 248, 0.12);
+        color: #7dd3fc;
+        font-size: 0.95rem;
+    }
+    @media (max-width: 760px) {
+        .ops-strip { grid-template-columns: 1fr; }
+        .brand-header { padding: 1rem; }
+        .brand-title { font-size: 1.25rem; }
+    }
     
     /* Stat Metric Cards */
     .metric-card {
-        background: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 10px;
-        padding: 1rem;
+        background: linear-gradient(145deg, #172438, #111b2b);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 11px;
+        padding: 0.85rem 1rem;
         text-align: center;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
     }
     .metric-value {
         font-size: 1.8rem;
@@ -175,6 +228,68 @@ st.markdown("""
         letter-spacing: 0.5px;
         margin-top: 4px;
     }
+    .service-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        margin: 0 0 1.1rem;
+    }
+    .service-chip {
+        border: 1px solid rgba(16, 185, 129, 0.7);
+        border-radius: 999px;
+        padding: 0.25rem 0.65rem;
+        color: #9fe8c4;
+        background: rgba(16, 185, 129, 0.07);
+        font-size: 0.68rem;
+        font-weight: 700;
+    }
+    .service-chip::before { content: "●"; color: #22c55e; margin-right: 0.35rem; }
+    .incident-shell {
+        background: linear-gradient(145deg, rgba(24, 36, 58, 0.96), rgba(17, 27, 43, 0.96));
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 0.85rem;
+    }
+    .incident-shell-title { color: #f8fafc; font-size: 1.05rem; font-weight: 800; }
+    .incident-shell-meta { color: #7d8da5; font-size: 0.7rem; float: right; }
+    .verified-address {
+        border: 1px solid #1da6e0;
+        background: rgba(29, 166, 224, 0.12);
+        border-radius: 9px;
+        padding: 0.7rem 0.85rem;
+        margin: 0.7rem 0;
+        color: #d8f4ff;
+        font-size: 0.82rem;
+        font-weight: 700;
+    }
+    .recent-log-card {
+        background: linear-gradient(145deg, #172438, #111b2b);
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        border-radius: 11px;
+        padding: 0.8rem 0.85rem;
+        margin-bottom: 0.55rem;
+    }
+    .recent-log-id { color: #e2e8f0; font-weight: 800; font-size: 0.78rem; }
+    .recent-log-time { color: #71819a; float: right; font-size: 0.68rem; }
+    .recent-log-copy { color: #8fa0b7; font-size: 0.72rem; margin-top: 0.42rem; line-height: 1.35; }
+    .recent-log-badge { float: right; border-radius: 4px; padding: 0.17rem 0.4rem; font-size: 0.6rem; font-weight: 800; }
+    .badge-critical { background: rgba(239, 68, 68, 0.18); color: #f87171; }
+    .badge-warning { background: rgba(245, 158, 11, 0.18); color: #fbbf24; }
+    .badge-resolved { background: rgba(16, 185, 129, 0.18); color: #34d399; }
+    .section-kicker {
+        color: #71819a;
+        font-size: 0.65rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        margin-bottom: 0.35rem;
+    }
+    .metric-card .metric-value { line-height: 1; }
+    .metric-card .metric-label { font-size: 0.68rem; }
+    [data-testid="stSidebar"] h1 { font-size: 1.05rem; }
+    [data-testid="stSidebar"] h3 { font-size: 0.8rem; color: #d7e1ef; text-transform: uppercase; letter-spacing: 0.08em; }
+    [data-testid="stSidebar"] [data-testid="stCaptionContainer"] { color: #71819a; font-size: 0.68rem; }
     
     /* Incident Badges */
     .badge {
@@ -361,6 +476,95 @@ st.markdown("""
         70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
         100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
     }
+
+    /* Responsive command-center layout */
+    :root {
+        --surface-0: #080d16;
+        --surface-1: #111a2a;
+        --surface-2: #18243a;
+        --line: rgba(148, 163, 184, 0.2);
+        --muted: #91a2bb;
+        --text: #f7fafc;
+        --accent: #63b3ed;
+    }
+    [data-testid="stAppViewContainer"] {
+        background:
+            radial-gradient(circle at 85% 0%, rgba(37, 99, 235, 0.13), transparent 30rem),
+            var(--surface-0);
+    }
+    [data-testid="stHeader"] { background: transparent; }
+    [data-testid="stMainBlockContainer"] {
+        max-width: 1480px;
+        padding: 2.5rem clamp(1rem, 3vw, 3.5rem) 4rem;
+    }
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #151d2d 0%, #101622 100%);
+        border-right: 1px solid var(--line);
+    }
+    [data-testid="stSidebar"] > div:first-child { padding: 1.25rem 1rem 2rem; }
+    h1, h2, h3 { color: var(--text); letter-spacing: -0.02em; }
+    h2, h3 { margin-top: 0.35rem; }
+    [data-testid="stHorizontalBlock"] {
+        gap: clamp(0.75rem, 1.5vw, 1.25rem);
+        align-items: stretch;
+    }
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        border-color: var(--line);
+        border-radius: 14px;
+        background: rgba(17, 26, 42, 0.72);
+    }
+    [data-testid="stButton"] button,
+    [data-testid="stFormSubmitButton"] button {
+        min-height: 2.65rem;
+        border-radius: 9px;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        font-weight: 700;
+        transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    }
+    [data-testid="stButton"] button:hover,
+    [data-testid="stFormSubmitButton"] button:hover {
+        transform: translateY(-1px);
+        border-color: rgba(99, 179, 237, 0.7);
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+    }
+    [data-testid="stSelectbox"] > div,
+    [data-testid="stTextInput"] > div { border-radius: 9px; }
+    [data-testid="stProgressBar"] > div > div { background: linear-gradient(90deg, #ef4444, #f59e0b); }
+    .metric-card { min-height: 88px; display: flex; flex-direction: column; justify-content: center; }
+    .location-tracker-card { min-height: 132px; }
+
+    @media (max-width: 900px) {
+        [data-testid="stMainBlockContainer"] { padding: 1.25rem 1rem 3rem; }
+        [data-testid="stHorizontalBlock"] { flex-wrap: wrap; }
+        [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+            min-width: calc(50% - 0.5rem) !important;
+            flex: 1 1 calc(50% - 0.5rem) !important;
+        }
+        .brand-header { padding: 1rem 1.1rem; }
+        .brand-title { font-size: 1.35rem; line-height: 1.25; }
+        .sos-banner { padding: 1rem; }
+        .sos-title { font-size: 1.05rem; }
+        .location-tracker-card { padding: 1rem; }
+    }
+    @media (max-width: 560px) {
+        [data-testid="stMainBlockContainer"] { padding: 0.85rem 0.75rem 2.5rem; }
+        [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+            min-width: 100% !important;
+            flex: 1 1 100% !important;
+        }
+        .brand-header { align-items: flex-start; gap: 0.8rem; }
+        .brand-title { font-size: 1.08rem; }
+        .brand-subtitle { font-size: 0.75rem; }
+        .live-pulse { width: 8px; height: 8px; }
+        .sos-title { align-items: flex-start; line-height: 1.35; }
+        .sos-timer-number { font-size: 2.6rem; }
+        .gps-coord-chip { width: 100%; margin-right: 0; }
+        .location-tracker-title { font-size: 0.92rem; }
+        .whatsapp-btn-container { padding: 0.85rem; }
+        .metric-card { min-height: 76px; }
+        .service-chips { margin-bottom: 0.75rem; }
+        iframe[title="streamlit_components.html"] { width: 100% !important; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -385,39 +589,19 @@ if "wa_location_result" not in st.session_state:
 st.markdown("""
 <div class="brand-header">
     <div>
-        <div class="brand-title">🛡️ SafeRide AI — Emergency Response Dashboard</div>
-        <div class="brand-subtitle">Multimodal Accident Detection & Automated 10-Second Emergency Dispatch Backbone</div>
+        <div class="brand-title">🛡️ SafeRide AI <span style="font-size:0.62rem; vertical-align:middle; background:#27364c; color:#9fb0c7; border-radius:4px; padding:3px 6px; letter-spacing:0;">v2.4-OPS</span></div>
+        <div class="brand-subtitle">Emergency response command center</div>
     </div>
     <div>
-        <span class="live-pulse"></span>
-        <strong style="color:#ef4444; font-size:0.9rem; letter-spacing:0.5px;">LIVE DISPATCH SPHERE</strong>
+        <div class="operator-meta"><span class="operator-avatar">RK</span><span><span class="live-pulse"></span><strong style="color:#ef4444; font-size:0.72rem; letter-spacing:0.5px;">LIVE DISPATCH</strong><br>Operator console</span></div>
     </div>
 </div>
-""", unsafe_allow_html=True)
-
-# Fetch dynamic status of all integrated APIs
-twilio_stat = notify.verify_twilio_status()
-geo_stat = geo.verify_geocoding_status()
-trans_stat = tr.verify_translation_status()
-
-# Real-time Status Bar
-st.markdown(f"""
-<div class="api-status-bar">
-    <div class="api-pill api-pill-online">
-        <span class="api-dot api-dot-green"></span>
-        Twilio SMS & Voice: <b>{twilio_stat['status']}</b> ({twilio_stat.get('sender_number', 'N/A')} ➔ {twilio_stat.get('dispatch_phone', 'N/A')})
-    </div>
-    <div class="api-pill api-pill-online">
-        <span class="api-dot api-dot-green"></span>
-        Reverse Geocoding: <b>{geo_stat['provider']} ({geo_stat['status']})</b>
-    </div>
-    <div class="api-pill api-pill-online">
-        <span class="api-dot api-dot-green"></span>
-        Translation Engine: <b>{trans_stat['provider']} ({trans_stat['status']})</b>
-    </div>
+<div class="service-chips">
+    <span class="service-chip">Emergency alerts</span>
+    <span class="service-chip">Location tracking</span>
+    <span class="service-chip">Rider translation</span>
 </div>
 """, unsafe_allow_html=True)
-
 
 # --- FETCH INCIDENTS ---
 incidents = db.get_all_incidents()
@@ -431,6 +615,7 @@ if not incidents:
 # --- SIDEBAR: SIMULATOR & SELECTION ---
 with st.sidebar:
     st.title("🎛️ Command & Sim")
+    st.caption("Responder operations console")
     
     # Filter Status
     status_filter = st.selectbox(
@@ -555,14 +740,13 @@ if st.session_state.get("sos_call_result") or st.session_state.get("wa_location_
     with r_col1:
         if call_info and call_info.get("success"):
             st.success(f"""
-                📞 **Twilio Voice Call Dispatched!**
+                📞 **Emergency Voice Call Dispatched!**
                 - **Target:** `{call_info.get('to', notify.EMERGENCY_DISPATCH_PHONE)}`
-                - **SID:** `{call_info.get('sid', 'N/A')}`
                 - **Status:** `{call_info.get('status', 'queued')}`
             """)
         elif call_info:
             st.error(f"""
-                📞 **Voice Call Notice:** `{call_info.get('error', 'Dial error')}`
+                📞 **Voice Call Notice:** The emergency call could not be completed. Please use the manual contact option.
             """)
 
     with r_col2:
@@ -572,7 +756,6 @@ if st.session_state.get("sos_call_result") or st.session_state.get("wa_location_
             st.success(f"""
                 📍 **Emergency Location Message Dispatched!**
                 - **Recipient:** `{loc_to}`
-                - **Channel:** `{loc_info.get('channel', 'twilio_location').upper()}`
                 - **GPS Route:** [{loc_maps}]({loc_maps})
             """)
             if loc_info.get('wa_direct_url'):
@@ -619,7 +802,7 @@ if st.session_state.get("sos_timer_active"):
         <div style="font-size:0.92rem; color:#fecaca; margin-top:8px;">
             Accident Record: <b>{sos_inc['incident_id']}</b> ({sos_inc['vehicle_type']} • Confidence: <b>{sos_inc['confidence']}%</b>)
             <br>📍 Location: <b>{sos_addr}</b> (GPS: <code>{sos_inc['latitude']}, {sos_inc['longitude']}</code>)
-            <br><span style="color:#ffffff; font-weight:600;">In 10 seconds, SafeRide AI will automatically send the exact GPS crash location message, Google Maps navigation route, and initiate an emergency voice call to {dest_phone} via Twilio.</span>
+            <br><span style="color:#ffffff; font-weight:600;">In 10 seconds, SafeRide AI will automatically send the exact GPS crash location and initiate an emergency voice call to {dest_phone}.</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -643,7 +826,7 @@ if st.session_state.get("sos_timer_active"):
 
     with col_ctrl2:
         if st.button("⚡ SEND LOCATION & CALL NOW (Skip Timer)", key="btn_instant_sos_active", type="primary", use_container_width=True):
-            with st.spinner("Dispatching emergency location message & voice call via Twilio..."):
+            with st.spinner("Dispatching emergency location message and voice call..."):
                 call_res = notify.trigger_emergency_call(sos_inc, to_phone=dest_phone)
                 sms_res = notify.send_emergency_sms(sos_inc, to_phone=dest_phone)
                 wa_loc_res = notify.send_whatsapp_location(sos_inc, to_phone=dest_phone, address=sos_addr)
@@ -654,7 +837,7 @@ if st.session_state.get("sos_timer_active"):
                 db.add_incident_message(
                     sos_inc["incident_id"],
                     "System",
-                    f"⚡ Manual Emergency Dispatch: Automated Location Message & Voice Call sent to {dest_phone} via Twilio. "
+                    f"⚡ Manual Emergency Dispatch: Location message and voice call sent to {dest_phone}. "
                     f"GPS: ({sos_inc['latitude']}, {sos_inc['longitude']}) | Map: {maps_link}"
                 )
                 st.session_state["sos_timer_active"] = False
@@ -670,7 +853,7 @@ if st.session_state.get("sos_timer_active"):
         timer_display.markdown(f"""
             <div style="background:#1e1b2e; border:2px solid #ef4444; border-radius:12px; padding:1.2rem; text-align:center; margin: 10px 0;">
                 <div style="font-size:0.85rem; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:1px;">
-                    Automated Twilio Emergency Location & Call In:
+                    Automated Emergency Location & Call In:
                 </div>
                 <div class="sos-timer-number">{sec_left}s</div>
                 <div style="font-size:0.85rem; color:#f87171;">
@@ -686,13 +869,13 @@ if st.session_state.get("sos_timer_active"):
         <div style="background:#1e1b2e; border:2px solid #10b981; border-radius:12px; padding:1.2rem; text-align:center; margin: 10px 0;">
             <div style="font-size:1.6rem; font-weight:800; color:#34d399;">🚨 10 SECONDS EXPIRED — SENDING LOCATION & EMERGENCY CALL!</div>
             <div style="font-size:0.9rem; color:#cbd5e1; margin-top:4px;">
-                Dispatching GPS coordinates, Google Maps route, and automated voice call to {dest_phone} via Twilio...
+                Dispatching GPS coordinates, Google Maps route, and automated voice call to {dest_phone}...
             </div>
         </div>
     """, unsafe_allow_html=True)
     bar_display.progress(0.0)
 
-    # Execute automated Twilio Location Message, Voice Call & SMS
+    # Execute automated location message, voice call, and SMS
     call_res = notify.trigger_emergency_call(sos_inc, to_phone=dest_phone)
     sms_res = notify.send_emergency_sms(sos_inc, to_phone=dest_phone)
     wa_loc_res = notify.send_whatsapp_location(sos_inc, to_phone=dest_phone, address=sos_addr)
@@ -703,99 +886,14 @@ if st.session_state.get("sos_timer_active"):
     db.add_incident_message(
         sos_inc["incident_id"],
         "System",
-        f"🚨 10-Second Auto-Timer Expired: Automated Emergency Location Message & Voice Call placed to {dest_phone} via Twilio. "
-        f"GPS: ({sos_inc['latitude']}, {sos_inc['longitude']}) | Map: {maps_link} (Call SID: {call_res.get('sid', 'N/A')[:12]}...)"
+        f"🚨 10-Second Auto-Timer Expired: Emergency Location Message & Voice Call placed to {dest_phone}. "
+        f"GPS: ({sos_inc['latitude']}, {sos_inc['longitude']}) | Map: {maps_link}"
     )
     st.session_state["sos_timer_active"] = False
     st.session_state["sos_call_result"] = call_res
     st.session_state["wa_location_result"] = wa_loc_res
     time.sleep(1.2)
     st.rerun()
-
-
-# --- INTERACTIVE API PREVIEW & TESTING DRAWER ---
-with st.expander("🔑 API Integrations & Live Testing Sandbox (Twilio • Geoapify • Multilingual Translation)", expanded=False):
-    st.markdown("Test and preview your integrated API credentials live in real-time:")
-    
-    api_col1, api_col2, api_col3 = st.columns(3)
-    
-    # 1. Twilio Live Preview Card
-    with api_col1:
-        st.subheader("📲 Twilio Telephony")
-        st.write(f"**Account:** `{twilio_stat.get('friendly_name', 'Twilio')}`")
-        st.write(f"**Sender (Twilio):** `{twilio_stat.get('sender_number')}`")
-        st.write(f"**Dispatch Recipient:** `{twilio_stat.get('dispatch_phone')}`")
-        
-        test_phone = st.text_input("Test Target Phone:", value=twilio_stat.get('dispatch_phone', '+917416960828'), key="test_sms_target")
-        
-        btn_c1, btn_c2 = st.columns(2)
-        with btn_c1:
-            if st.button("🚀 Send Test SMS", use_container_width=True):
-                with st.spinner("Dispatching via Twilio SMS..."):
-                    dummy_incident = {
-                        "incident_id": "TEST-PING-001",
-                        "vehicle_type": "Motorcycle",
-                        "confidence": 92.5,
-                        "latitude": 17.4435,
-                        "longitude": 78.3772,
-                        "formatted_address": "TCS Junction, HITEC City, Hyderabad",
-                        "rider_status": "TEST ALERT"
-                    }
-                    res = notify.send_emergency_sms(dummy_incident, to_phone=test_phone)
-                    if res.get("success"):
-                        st.success(f"SMS Sent! SID: {res.get('sid')[:12]}...")
-                        st.caption(f"Status: `{res.get('status')}` | Recipient: `{res.get('to')}`")
-                    else:
-                        st.error(f"SMS Failed: {res.get('error')}")
-        with btn_c2:
-            if st.button("📞 Test Voice Call", use_container_width=True):
-                with st.spinner("Triggering Twilio Voice Call..."):
-                    dummy_incident = {
-                        "incident_id": "TEST-CALL-001",
-                        "vehicle_type": "Motorcycle",
-                        "confidence": 95.0,
-                        "city": "Cyberabad Zone"
-                    }
-                    call_res = notify.trigger_emergency_call(dummy_incident, to_phone=test_phone)
-                    if call_res.get("success"):
-                        st.success(f"Call Queued! SID: {call_res.get('sid')[:12]}...")
-                        st.caption(f"Status: `{call_res.get('status')}` | Recipient: `{call_res.get('to')}`")
-                    else:
-                        st.error(f"Call Error: {call_res.get('error')}")
-
-    # 2. Reverse Geocoding Live Preview Card
-    with api_col2:
-        st.subheader("📍 Reverse Geocoding")
-        st.write(f"**Provider:** `{geo_stat.get('provider')}`")
-        st.write(f"**Status:** `{geo_stat.get('status')}`")
-        
-        test_lat = st.number_input("Test Latitude:", value=17.4435, format="%.4f", key="test_geo_lat")
-        test_lon = st.number_input("Test Longitude:", value=78.3772, format="%.4f", key="test_geo_lon")
-        
-        if st.button("🔍 Resolve Landmark Address", use_container_width=True):
-            with st.spinner("Resolving street address..."):
-                resolved = geo.reverse_geocode(test_lat, test_lon)
-                st.info(f"**Address:**\n{resolved['formatted_address']}")
-                st.caption(f"Provider: `{resolved.get('provider')}`")
-
-    # 3. Multilingual Translation Live Preview Card
-    with api_col3:
-        st.subheader("🌐 Translation Engine")
-        st.write(f"**Provider:** `{trans_stat.get('provider')}`")
-        st.write(f"**Pair:** `English ⟷ Telugu`")
-        
-        trans_direction = st.radio("Translation Direction:", ["English ➔ Telugu", "Telugu ➔ English"], horizontal=True)
-        sample_default = "Ambulance is 3 minutes away from your location." if "English" in trans_direction else "నా కాలు బైక్ కింద ఇరుక్కుపోయింది."
-        test_text = st.text_input("Enter text to translate:", value=sample_default, key="test_trans_input")
-        
-        if st.button("🗣️ Run Translation", use_container_width=True):
-            with st.spinner("Translating..."):
-                if "English ➔ Telugu" in trans_direction:
-                    out = tr.translate_to_telugu(test_text)
-                    st.success(f"**Telugu:** {out}")
-                else:
-                    out = tr.translate_to_english(test_text)
-                    st.success(f"**English:** {out}")
 
 
 # --- TOP KPI METRICS ROW ---
@@ -809,7 +907,7 @@ with col_m1:
     st.markdown(f"""
         <div class="metric-card">
             <div class="metric-value">{total_incidents}</div>
-            <div class="metric-label">Total Logged Incidents</div>
+            <div class="metric-label">Total Incidents</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -833,7 +931,7 @@ with col_m4:
     st.markdown(f"""
         <div class="metric-card">
             <div class="metric-value" style="color: #3b82f6;">{dispatched_count}</div>
-            <div class="metric-label">Units Dispatched</div>
+            <div class="metric-label">Dispatched Teams</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -848,7 +946,12 @@ current_geo = geo.reverse_geocode(current_incident['latitude'], current_incident
 resolved_address = current_incident.get('address') or current_geo.get('formatted_address', 'Address resolving...')
 
 with left_col:
-    st.subheader(f"📋 Incident Record: {current_incident['incident_id']}")
+    st.markdown(f"""
+        <div class="incident-shell">
+            <span class="incident-shell-title">Incident Details {current_incident['incident_id']}</span>
+            <span class="incident-shell-meta">Detected recently</span>
+        </div>
+    """, unsafe_allow_html=True)
     
     # Status badges
     rider_status_class = "badge-need-help" if current_incident['rider_status'] == "NEED HELP" else (
@@ -865,8 +968,8 @@ with left_col:
 
     # Resolved Physical Address Box
     st.markdown(f"""
-        <div class="address-card">
-            <div style="font-size:0.75rem; font-weight:700; color:#38bdf8; text-transform:uppercase;">📍 Resolved Street Location ({current_geo.get('provider', 'Geoapify')}):</div>
+        <div class="verified-address">
+            <div style="font-size:0.75rem; font-weight:700; color:#38bdf8; text-transform:uppercase;">📍 Resolved Street Location:</div>
             <div style="font-size:0.95rem; font-weight:600; color:#f8fafc; margin-top:2px;">{resolved_address}</div>
         </div>
     """, unsafe_allow_html=True)
@@ -888,13 +991,13 @@ with left_col:
     st.markdown("---")
     
     # Status Triage Actions
-    st.write("**🚨 Rapid Responder Actions (Twilio Automated Dispatch):**")
+    st.write("**🚨 Rapid Responder Actions:**")
     st_b1, st_b2, st_b3, st_b4 = st.columns(4)
     with st_b1:
         if st.button("🚨 Dispatch 108", use_container_width=True):
             db.update_incident(current_incident["incident_id"], status="DISPATCHED", address=resolved_address)
             
-            # Send real emergency SMS via Twilio to emergency dispatch phone
+            # Send the emergency text alert to the dispatch phone
             sms_payload = {
                 "incident_id": current_incident["incident_id"],
                 "vehicle_type": current_incident["vehicle_type"],
@@ -917,9 +1020,9 @@ with left_col:
             )
             
             if sms_result.get("success"):
-                st.success(f"Ambulance dispatched & Twilio SMS Alert sent! (SID: {sms_result['sid'][:10]}...)")
+                st.success("Ambulance dispatched and emergency alert sent.")
             else:
-                st.warning(f"Ambulance dispatched! (Twilio SMS notice: {sms_result.get('error', 'Ready')})")
+                st.warning("Ambulance dispatched. The emergency alert could not be delivered.")
             st.rerun()
 
     with st_b2:
@@ -937,7 +1040,7 @@ with left_col:
                 db.add_incident_message(
                     current_incident["incident_id"],
                     "System",
-                    f"📞 Emergency Voice Call placed to {call_result.get('to', notify.EMERGENCY_DISPATCH_PHONE)} (Twilio SID: {call_result.get('sid', 'N/A')[:12]}...)."
+                    f"📞 Emergency voice call placed to {call_result.get('to', notify.EMERGENCY_DISPATCH_PHONE)}."
                 )
             st.session_state["sos_call_result"] = call_result
             st.rerun()
@@ -960,12 +1063,11 @@ with left_col:
     st.markdown("---")
 
     # ─────────────────────────────────────────────────────────────────────
-    # 🛰️ LIVE LOCATION TRACKER — Powered by Geoapify + Folium
+    # 🛰️ LIVE LOCATION TRACKER
     # ─────────────────────────────────────────────────────────────────────
     lat_c = current_incident['latitude']
     lon_c = current_incident['longitude']
     maps_link_c = f"https://maps.google.com/?q={lat_c},{lon_c}"
-    static_map_url = geo.get_geoapify_static_map_url(lat_c, lon_c)
 
     st.markdown(f"""
     <div class="location-tracker-card">
@@ -992,29 +1094,11 @@ with left_col:
     </div>
     """, unsafe_allow_html=True)
 
-    # Geoapify Static Map Preview
-    if static_map_url:
-        st.markdown('<div class="static-map-overlay">', unsafe_allow_html=True)
-        st.image(
-            static_map_url,
-            caption=f"📍 Crash Site: {resolved_address}",
-            use_container_width=True
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
-    else:
-        # Fallback: Streamlit native map with crash pin
-        map_df = pd.DataFrame({'lat': [lat_c], 'lon': [lon_c]})
-        st.map(map_df, zoom=14)
-
-    # ─── Interactive OpenStreetMap (OSM) with Leaflet.js ───────────────────
-    # Zero API Key or Billing Required - 100% Free & Open-Source OpenStreetMap
+    # ─── Interactive location map ─────────────────────────────────────────
     st.markdown("""
     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem; margin-bottom:0.5rem;">
         <span style="font-size:0.95rem; font-weight:700; color:#93c5fd; display:flex; align-items:center; gap:6px;">
-            🗺️ Live OpenStreetMap (OSM) + Leaflet Telemetry Map
-        </span>
-        <span style="font-size:0.75rem; background:rgba(34,197,94,0.15); color:#86efac; border:1px solid rgba(34,197,94,0.4); padding:2px 8px; border-radius:999px; font-weight:600;">
-            ✓ Free & Open-Source — No Mapbox Token Required
+            🗺️ Live Crash Location
         </span>
     </div>
     """, unsafe_allow_html=True)
@@ -1036,7 +1120,7 @@ with left_col:
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <!-- 1. Include Leaflet CSS & JS in <head> -->
+        <!-- Map styles and scripts -->
         <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
         <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
         <style>
@@ -1083,12 +1167,12 @@ with left_col:
         <!-- 2. Create the container div -->
         <div id="map"></div>
 
-        <!-- 3. Initialize the map (No API Key or Billing Required) -->
+        <!-- Initialize the map -->
         <script>
             // Center coordinates (latitude, longitude) and zoom level
             const map = L.map('map').setView([{lat_c}, {lon_c}], 15);
 
-            // Add the free OpenStreetMap tile layer
+            // Add the map tile layer
             L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
                 maxZoom: 19,
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors'
@@ -1147,19 +1231,6 @@ with left_col:
     st.markdown("""
     <div class="whatsapp-btn-container">
         <div class="whatsapp-btn-title">
-            📲 Send Emergency Location to Ambulance / Responder
-        </div>
-        <div style="font-size:0.8rem; color:#86efac;">
-            Dispatches exact GPS coordinates + Google Maps link + street address via WhatsApp (or SMS fallback)
-            to the configured emergency number.
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # ─── WhatsApp / SMS Location Alert Section ────────────────────────────
-    st.markdown("""
-    <div class="whatsapp-btn-container">
-        <div class="whatsapp-btn-title">
             📲 Send Emergency Location to Ambulance / Responder via WhatsApp
         </div>
         <div style="font-size:0.8rem; color:#86efac; margin-bottom:0.4rem;">
@@ -1201,15 +1272,15 @@ with left_col:
     )
     wa_direct_url = f"https://wa.me/{clean_target_digits}?text={urllib.parse.quote(wa_direct_msg)}"
 
-    # Primary: 1-Click Direct WhatsApp Action (Works 100% of the time without API limits)
+    # Primary: 1-Click direct WhatsApp action
     st.markdown(f"""
     <a href="{wa_direct_url}" target="_blank" class="whatsapp-direct-btn">
         💬 Open & Send in WhatsApp (1-Click Instant Send)
     </a>
     """, unsafe_allow_html=True)
 
-    # Secondary: Automated Background Twilio Dispatch
-    if st.button("🤖 Automated Twilio API Dispatch (Background)", use_container_width=True,
+    # Secondary: Automated background dispatch
+    if st.button("🤖 Send Alert Automatically", use_container_width=True,
                  key=f"btn_wa_loc_{current_incident['incident_id']}"):
         wa_payload = {
             "incident_id": current_incident["incident_id"],
@@ -1244,9 +1315,8 @@ with left_col:
 
         if channel == "whatsapp":
             st.success(f"""
-                💬 **Dispatched via Twilio WhatsApp!**
+                💬 **Emergency alert sent via WhatsApp!**
                 - **Sent To:** `{wa_res.get("to", active_target_phone)}`
-                - **SID:** `{wa_res.get("sid", "N/A")[:14]}...`
                 - **Status:** `{wa_res.get("status", "queued")}`
                 - **GPS Link:** [{wa_res.get("maps_link", "")}]({wa_res.get("maps_link", "")})
             """)
@@ -1261,7 +1331,7 @@ with left_col:
             st.info(f"""
                 💬 **1-Click WhatsApp Alert Ready for Dispatch:**
                 - **Target:** `{wa_res.get("to", active_target_phone)}`
-                - **Note:** {wa_res.get("notice", "Click below to dispatch via WhatsApp Web or mobile app.")}
+                - **Note:** Click below to dispatch via WhatsApp Web or mobile app.
             """)
             st.markdown(f"""
             <a href="{wa_res.get('wa_direct_url', wa_direct_url)}" target="_blank" class="whatsapp-direct-btn">
@@ -1270,7 +1340,7 @@ with left_col:
             """, unsafe_allow_html=True)
         elif not wa_res.get("success"):
             st.error(f"""
-                ❌ **Automated Dispatch Notice:** `{wa_res.get("error", "API restricted")}`
+                ❌ **Automated Dispatch Notice:** Unable to send the alert automatically.
             """)
             st.markdown(f"""
             <a href="{wa_direct_url}" target="_blank" class="whatsapp-direct-btn">
@@ -1284,6 +1354,24 @@ with left_col:
 
 
 with right_col:
+    st.markdown("<div class='incident-shell-title' style='margin-bottom:0.7rem;'>Recent Incident Log <span style='float:right; color:#38bdf8; font-size:0.72rem;'>View history</span></div>", unsafe_allow_html=True)
+    recent_incidents = [inc for inc in incidents if inc["incident_id"] != current_incident["incident_id"]][:4]
+    for recent in recent_incidents:
+        recent_status = recent.get("status", "REPORTED")
+        badge_class = "badge-resolved" if recent_status == "RESOLVED" else (
+            "badge-warning" if recent_status == "REPORTED" else "badge-critical"
+        )
+        recent_copy = "Emergency incident requires responder attention." if recent_status != "RESOLVED" else "Incident closed after responder review."
+        st.markdown(f"""
+            <div class="recent-log-card">
+                <div class="recent-log-id">{recent['incident_id']}
+                    <span class="recent-log-badge {badge_class}">{recent_status}</span>
+                </div>
+                <div class="recent-log-time">{recent.get('timestamp', '')[-8:]}</div>
+                <div class="recent-log-copy">{recent_copy}</div>
+            </div>
+        """, unsafe_allow_html=True)
+
     st.subheader("💬 Multilingual Emergency Chat Hub")
     st.caption("Bidirectional Telugu ↔ English neural translation stream between Rider and Responder.")
 
@@ -1325,10 +1413,13 @@ with right_col:
                         </div>
                     """, unsafe_allow_html=True)
                 else:  # System
+                    system_text = msg['original_text']
+                    if any(detail in system_text for detail in ("Twilio", "API", "SID:")):
+                        system_text = "Emergency dispatch event recorded."
                     st.markdown(f"""
                         <div style="background:#182234; border:1px dashed #475569; border-radius:8px; padding:8px; margin-bottom:8px; text-align:center;">
                             <div style="font-size:0.75rem; color:#94a3b8;">⚙️ SYSTEM EVENT</div>
-                            <div style="font-size:0.85rem; color:#e2e8f0;">{msg['original_text']}</div>
+                            <div style="font-size:0.85rem; color:#e2e8f0;">{system_text}</div>
                             <div style="font-size:0.7rem; color:#64748b;">{msg['timestamp']}</div>
                         </div>
                     """, unsafe_allow_html=True)

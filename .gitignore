@@ -19,3 +19,8 @@ env/
 # IDE files
 .vscode/
 .idea/
+
+# Android/Gradle local files
+.gradle/
+local.properties
+build/

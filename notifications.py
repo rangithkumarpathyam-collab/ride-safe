@@ -16,8 +16,11 @@ import re
 from typing import Dict, Any, Optional
 from dotenv import load_dotenv
 
-# Load environment configuration
+# Prefer a private .env file, but support this repository's existing setup file
+# so the dashboard does not silently start with an empty Twilio configuration.
 load_dotenv()
+if not os.getenv("TWILIO_ACCOUNT_SID"):
+    load_dotenv(dotenv_path=".env.example")
 
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "").strip()
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
@@ -63,8 +66,15 @@ def verify_twilio_status() -> Dict[str, Any]:
     if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN:
         return {
             "status": "NOT_CONFIGURED",
-            "message": "Twilio Account SID or Auth Token missing in .env",
+            "message": "Twilio Account SID or Auth Token missing. Add them to .env",
             "sender_number": TWILIO_PHONE_NUMBER or "N/A",
+            "dispatch_phone": EMERGENCY_DISPATCH_PHONE or "N/A"
+        }
+
+    if not TWILIO_PHONE_NUMBER:
+        return {
+            "status": "INCOMPLETE",
+            "message": "TWILIO_PHONE_NUMBER is missing in .env",
             "dispatch_phone": EMERGENCY_DISPATCH_PHONE or "N/A"
         }
 

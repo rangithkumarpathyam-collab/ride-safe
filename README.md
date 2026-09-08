@@ -67,6 +67,18 @@
    ```
    Open `http://localhost:8502` in your browser.
 
+5. **Run the incident API for the mobile app:**
+   ```bash
+   uvicorn api:app --host 0.0.0.0 --port 8000
+   ```
+   The Android client posts SOS telemetry to `http://<computer-ip>:8000/api/v1/incidents` and then sends the latest GPS position to `PUT /api/v1/incidents/{incident_id}/location` every five seconds while the incident screen remains open.
+   Set `SAFERIDE_API_TOKEN` in `.env` and the matching `API_TOKEN` build field in the Android app before using it outside a trusted local network.
+
+6. **Open the mobile web companion:**
+   ```bash
+   streamlit run mobile_app.py --server.port 8503
+   ```
+
 ---
 
 ## 📄 License

@@ -13,7 +13,7 @@ Outputs:
   - severity category and sub-scores
 """
 
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, List, Sequence
 
 
 # Default weights for the multi-sensor heuristic fusion
@@ -23,6 +23,29 @@ WEIGHT_TILT_ABNORMALITY = 0.25
 
 # Baseline threshold for triggering an accident alert
 ACCIDENT_CONFIDENCE_THRESHOLD = 60.0  # in percent (0 - 100)
+
+
+def validate_telemetry(
+    speed_before: float,
+    speed_after: float,
+    impact_force_g: float,
+    tilt_angle_deg: float,
+) -> None:
+    """Reject impossible phone sensor values before scoring them."""
+    values = {
+        "speed_before": speed_before,
+        "speed_after": speed_after,
+        "impact_force_g": impact_force_g,
+        "tilt_angle_deg": tilt_angle_deg,
+    }
+    if any(not isinstance(value, (int, float)) for value in values.values()):
+        raise ValueError("Telemetry values must be numeric.")
+    if speed_before < 0 or speed_after < 0:
+        raise ValueError("Speed values cannot be negative.")
+    if impact_force_g < 0:
+        raise ValueError("Impact force cannot be negative.")
+    if not 0 <= tilt_angle_deg <= 180:
+        raise ValueError("Tilt angle must be between 0 and 180 degrees.")
 
 
 def calculate_speed_drop_score(speed_before: float, speed_after: float) -> float:
@@ -130,6 +153,8 @@ def detect_accident(
         - scores: dict of component scores
         - telemetry_inputs: dict of raw inputs
     """
+    validate_telemetry(speed_before, speed_after, impact_force_g, tilt_angle_deg)
+
     speed_score = calculate_speed_drop_score(speed_before, speed_after)
     impact_score = calculate_impact_score(impact_force_g)
     tilt_score = calculate_tilt_score(tilt_angle_deg, vehicle_type)
@@ -164,6 +189,67 @@ def detect_accident(
             "tilt_angle_deg": tilt_angle_deg,
             "vehicle_type": vehicle_type
         }
+    }
+
+
+def detect_accident_window(
+    samples: Sequence[Dict[str, float]],
+    vehicle_type: str = "Motorcycle",
+    threshold: float = ACCIDENT_CONFIDENCE_THRESHOLD,
+    min_confirmations: int = 2,
+) -> Dict[str, Any]:
+    """Confirm an accident from a short, ordered phone-sensor window.
+
+    A single spike is treated as a warning. The incident is confirmed when at
+    least ``min_confirmations`` samples cross the confidence threshold, or when
+    one sample is a critical, high-force impact.
+    """
+    if not samples:
+        raise ValueError("At least one telemetry sample is required.")
+    if min_confirmations < 1:
+        raise ValueError("min_confirmations must be at least 1.")
+
+    sample_results: List[Dict[str, Any]] = []
+    for sample in samples:
+        required = ("speed_before", "speed_after", "impact_force_g", "tilt_angle_deg")
+        missing = [field for field in required if field not in sample]
+        if missing:
+            raise ValueError(f"Telemetry sample is missing: {', '.join(missing)}")
+        sample_results.append(
+            detect_accident(
+                speed_before=sample["speed_before"],
+                speed_after=sample["speed_after"],
+                impact_force_g=sample["impact_force_g"],
+                tilt_angle_deg=sample["tilt_angle_deg"],
+                vehicle_type=vehicle_type,
+                threshold=threshold,
+            )
+        )
+
+    peak_result = max(sample_results, key=lambda result: result["confidence"])
+    confirmations = sum(result["accident_detected"] for result in sample_results)
+    critical_impact = (
+        peak_result["severity"] == "Critical Impact"
+        and peak_result["telemetry_inputs"]["impact_force_g"] >= 5.5
+    )
+    confirmed = confirmations >= min_confirmations or critical_impact
+    average_confidence = round(
+        sum(result["confidence"] for result in sample_results) / len(sample_results),
+        2,
+    )
+
+    return {
+        "accident_detected": confirmed,
+        "confidence": peak_result["confidence"],
+        "average_confidence": average_confidence,
+        "severity": peak_result["severity"],
+        "confirmations": confirmations,
+        "sample_count": len(sample_results),
+        "confirmation_reason": (
+            "critical impact" if critical_impact else "repeated sensor evidence"
+        ),
+        "peak_result": peak_result,
+        "sample_results": sample_results,
     }
 
 
