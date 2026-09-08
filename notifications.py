@@ -103,7 +103,8 @@ def verify_twilio_status() -> Dict[str, Any]:
 
 def send_emergency_sms(
     incident_data: Dict[str, Any],
-    to_phone: Optional[str] = None
+    to_phone: Optional[str] = None,
+    custom_body: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Dispatches a high-priority crash notification SMS via Twilio.
@@ -133,7 +134,7 @@ def send_emergency_sms(
 
     maps_link = f"https://maps.google.com/?q={lat},{lon}"
 
-    sms_body = (
+    sms_body = custom_body or (
         f"🚨 [SafeRide AI] EMERGENCY CRASH DISPATCH\n"
         f"Incident: {inc_id}\n"
         f"Vehicle: {vehicle} | Confidence: {conf}%\n"
@@ -146,15 +147,14 @@ def send_emergency_sms(
     try:
         msg = client.messages.create(
             body=sms_body,
-            from_=TWILIO_PHONE_NUMBER,
-            to=target
+            to=target,
+            from_=TWILIO_PHONE_NUMBER
         )
         return {
             "success": True,
             "sid": msg.sid,
             "status": msg.status,
-            "to": target,
-            "body": sms_body
+            "target": target
         }
     except Exception as ex:
         return {
@@ -166,7 +166,8 @@ def send_emergency_sms(
 
 def trigger_emergency_call(
     incident_data: Dict[str, Any],
-    to_phone: Optional[str] = None
+    to_phone: Optional[str] = None,
+    custom_twiml: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Triggers an automated voice call to the dispatch coordinator reading out
@@ -188,7 +189,7 @@ def trigger_emergency_call(
     conf = incident_data.get("confidence", 85.0)
     city = incident_data.get("city", "Cyberabad Zone")
 
-    twiml_script = f"""<Response>
+    twiml_script = custom_twiml or f"""<Response>
     <Pause length="1"/>
     <Say voice="alice" language="en-IN">
         Emergency Alert from SafeRide AI command center.

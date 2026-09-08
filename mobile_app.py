@@ -662,6 +662,85 @@ if st.session_state.mobile_section == "Home":
         st.session_state.mobile_timer_cancelled = False
         st.rerun()
 
+    # -------------------------------------------------------------------------
+    # 🌸 WOMEN SAFETY EMERGENCY SECTION
+    # -------------------------------------------------------------------------
+    st.markdown(
+        """
+        <div class="glass-card" style="background: linear-gradient(135deg, rgba(190, 24, 93, 0.28) 0%, rgba(131, 24, 67, 0.45) 100%); border: 1.5px solid rgba(244, 114, 182, 0.45); box-shadow: 0 10px 30px rgba(190, 24, 93, 0.35); margin-top:0.6rem;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                <div style="width:38px; height:38px; border-radius:12px; background:rgba(244,114,182,0.25); display:grid; place-items:center; font-size:1.4rem;">
+                    🌸
+                </div>
+                <div>
+                    <div style="font-size:0.95rem; font-weight:800; color:#fdf2f8; letter-spacing:0.02em;">WOMEN SAFETY EMERGENCY SOS</div>
+                    <div style="font-size:0.7rem; color:#fbcfe8;">Priority police & emergency responder voice dispatch</div>
+                </div>
+            </div>
+            <div style="font-size:0.75rem; color:#fce7f3; line-height:1.4; margin-bottom:6px;">
+                Directly triggers an automated Twilio voice call and high-priority GPS location SMS to emergency dispatch and emergency contacts.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    col_w1, col_w2 = st.columns([1.6, 1])
+    with col_w1:
+        if st.button("🌸 ACTIVATE WOMEN SAFETY SOS", key="btn_home_women_sos", type="primary", use_container_width=True):
+            with st.spinner("Activating Women Safety Emergency Dispatch via Twilio..."):
+                inc_id = db.create_incident(
+                    vehicle_type="Women Safety SOS",
+                    latitude=17.4435,
+                    longitude=78.3772,
+                    confidence=100.0,
+                    rider_status="EMERGENCY ASSISTANCE",
+                    language="English",
+                    message="Critical Women Safety SOS triggered. Immediate police & responder dispatch required.",
+                    status="REPORTED",
+                    address="12 MG Road, Bengaluru",
+                )
+                women_twiml = (
+                    "<Response><Pause length=\"1\"/><Say voice=\"alice\" language=\"en-IN\">"
+                    "Urgent Emergency Alert from SafeRide AI. Critical Women Safety SOS has been activated for female rider at coordinates latitude 17.4435, longitude 78.3772. "
+                    "Immediate police assistance and emergency responder dispatch is required. Check terminal now.</Say></Response>"
+                )
+                women_sms = (
+                    "🚨 SafeRide AI WOMEN SAFETY EMERGENCY ALERT! Female rider requested immediate assistance at "
+                    "Lat 17.4435, Lon 78.3772. Google Maps: https://maps.google.com/?q=17.4435,78.3772. "
+                    "Immediate police and emergency response needed!"
+                )
+                c_res = notify.trigger_emergency_call(
+                    {"incident_id": inc_id, "vehicle_type": "Women Safety SOS", "confidence": 100.0, "city": "12 MG Road, Bengaluru"},
+                    to_phone=notify.EMERGENCY_DISPATCH_PHONE,
+                    custom_twiml=women_twiml
+                )
+                s_res = notify.send_emergency_sms(
+                    {"incident_id": inc_id, "vehicle_type": "Women Safety SOS", "confidence": 100.0, "latitude": 17.4435, "longitude": 78.3772},
+                    to_phone=notify.EMERGENCY_DISPATCH_PHONE,
+                    custom_body=women_sms
+                )
+                st.session_state.last_call_dispatched = {
+                    "incident_id": inc_id,
+                    "call_sid": c_res.get("sid", "Queued"),
+                    "target": notify.EMERGENCY_DISPATCH_PHONE,
+                    "call_success": c_res.get("success", False),
+                    "error": c_res.get("error"),
+                }
+                st.rerun()
+
+    with col_w2:
+        st.markdown(
+            f"""
+            <a href="tel:{notify.EMERGENCY_DISPATCH_PHONE}" style="text-decoration:none;">
+                <div style="display:flex; align-items:center; justify-content:center; height:38px; border-radius:8px; background:rgba(244,114,182,0.2); border:1.5px solid #f472b6; color:#fdf2f8; font-weight:800; font-size:0.75rem; cursor:pointer;">
+                    📞 Dial {notify.EMERGENCY_DISPATCH_PHONE[-4:]}
+                </div>
+            </a>
+            """,
+            unsafe_allow_html=True,
+        )
+
     if st.button("⚡ Test Direct Twilio Emergency Call Now", use_container_width=True):
         with st.spinner(f"Placing direct Twilio voice call to {notify.EMERGENCY_DISPATCH_PHONE}..."):
             c_res = notify.trigger_emergency_call(
@@ -1035,15 +1114,150 @@ elif st.session_state.mobile_section == "Profile":
         st.rerun()
 
 # -----------------------------------------------------------------------------
+# TAB 5: 🌸 WOMEN SAFETY & RAPID PROTECTION HUB
+# -----------------------------------------------------------------------------
+elif st.session_state.mobile_section == "Women":
+    st.markdown(
+        """
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.8rem;">
+            <div style="font-size:1.2rem; font-weight:900; color:#fdf2f8;">
+                🌸 Women Safety Shield
+            </div>
+            <span class="badge-pill" style="background:rgba(244,114,182,0.25); border:1px solid #f472b6; color:#fbcfe8;">
+                24/7 ACTIVE
+            </span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        """
+        <div class="glass-card" style="background:linear-gradient(135deg, rgba(190, 24, 93, 0.35) 0%, rgba(131, 24, 67, 0.5) 100%); border:1.5px solid #f472b6; box-shadow:0 12px 36px rgba(190, 24, 93, 0.4); text-align:center; padding:1.4rem 1rem;">
+            <div style="font-size:2.4rem; margin-bottom:0.4rem;">🚨</div>
+            <div style="font-size:1.15rem; font-weight:900; color:#ffffff; letter-spacing:-0.02em;">
+                INSTANT EMERGENCY DISPATCH
+            </div>
+            <div style="font-size:0.75rem; color:#fce7f3; max-width:320px; margin:0.3rem auto 1.1rem; line-height:1.4;">
+                Press below to initiate automated emergency voice call & GPS coordinates SMS via Twilio to police and emergency contacts.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if st.button("🚨 TRIGGER WOMEN SAFETY SOS DISPATCH", key="btn_women_hub_sos", type="primary", use_container_width=True):
+        with st.spinner("Initiating emergency Twilio voice call and broadcast SMS..."):
+            inc_id = db.create_incident(
+                vehicle_type="Women Safety SOS",
+                latitude=17.4435,
+                longitude=78.3772,
+                confidence=100.0,
+                rider_status="CRITICAL ASSISTANCE",
+                language="English",
+                message="Women Safety Shield SOS activated. Immediate responder dispatch required.",
+                status="REPORTED",
+                address="12 MG Road, Bengaluru",
+            )
+            women_twiml = (
+                "<Response><Pause length=\"1\"/><Say voice=\"alice\" language=\"en-IN\">"
+                "Urgent Emergency Alert from SafeRide AI. Critical Women Safety SOS has been activated for female rider at coordinates latitude 17.4435, longitude 78.3772. "
+                "Immediate police assistance and emergency responder dispatch is required. Check terminal now.</Say></Response>"
+            )
+            women_sms = (
+                "🚨 SafeRide AI WOMEN SAFETY EMERGENCY ALERT! Female rider requested immediate assistance at "
+                "Lat 17.4435, Lon 78.3772. Google Maps: https://maps.google.com/?q=17.4435,78.3772. "
+                "Immediate police and emergency response needed!"
+            )
+            c_res = notify.trigger_emergency_call(
+                {"incident_id": inc_id, "vehicle_type": "Women Safety SOS", "confidence": 100.0, "city": "12 MG Road, Bengaluru"},
+                to_phone=notify.EMERGENCY_DISPATCH_PHONE,
+                custom_twiml=women_twiml
+            )
+            s_res = notify.send_emergency_sms(
+                {"incident_id": inc_id, "vehicle_type": "Women Safety SOS", "confidence": 100.0, "latitude": 17.4435, "longitude": 78.3772},
+                to_phone=notify.EMERGENCY_DISPATCH_PHONE,
+                custom_body=women_sms
+            )
+            st.session_state.last_call_dispatched = {
+                "incident_id": inc_id,
+                "call_sid": c_res.get("sid", "Queued"),
+                "target": notify.EMERGENCY_DISPATCH_PHONE,
+                "call_success": c_res.get("success", False),
+                "error": c_res.get("error"),
+            }
+            st.rerun()
+
+    # Fast Dial Emergency Helplines
+    st.markdown(
+        """
+        <div class="glass-card" style="margin-top:1rem; padding:1.1rem;">
+            <div style="font-size:0.75rem; font-weight:800; color:#f472b6; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:0.8rem;">
+                DIRECT HELPLINES
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <a href="tel:1091" style="text-decoration:none;">
+                    <div style="background:rgba(244,114,182,0.12); border:1px solid rgba(244,114,182,0.3); border-radius:12px; padding:0.65rem 0.5rem; text-align:center;">
+                        <div style="font-size:1.1rem; font-weight:900; color:#fbcfe8;">1091</div>
+                        <div style="font-size:0.68rem; color:#f472b6; font-weight:700;">WOMEN HELPLINE</div>
+                    </div>
+                </a>
+                <a href="tel:112" style="text-decoration:none;">
+                    <div style="background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.3); border-radius:12px; padding:0.65rem 0.5rem; text-align:center;">
+                        <div style="font-size:1.1rem; font-weight:900; color:#7dd3fc;">112</div>
+                        <div style="font-size:0.68rem; color:#38bdf8; font-weight:700;">POLICE / ALL SOS</div>
+                    </div>
+                </a>
+                <a href="tel:108" style="text-decoration:none;">
+                    <div style="background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3); border-radius:12px; padding:0.65rem 0.5rem; text-align:center;">
+                        <div style="font-size:1.1rem; font-weight:900; color:#fca5a5;">108</div>
+                        <div style="font-size:0.68rem; color:#ef4444; font-weight:700;">AMBULANCE</div>
+                    </div>
+                </a>
+                <a href="tel:""" + notify.EMERGENCY_DISPATCH_PHONE + """" style="text-decoration:none;">
+                    <div style="background:rgba(52,211,153,0.12); border:1px solid rgba(52,211,153,0.3); border-radius:12px; padding:0.65rem 0.5rem; text-align:center;">
+                        <div style="font-size:1.1rem; font-weight:900; color:#a7f3d0;">""" + notify.EMERGENCY_DISPATCH_PHONE[-4:] + """</div>
+                        <div style="font-size:0.68rem; color:#34d399; font-weight:700;">DISPATCHER</div>
+                    </div>
+                </a>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Live Safe Coordinates
+    st.markdown(
+        """
+        <div class="glass-card" style="padding:1rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <div style="font-size:0.7rem; font-weight:800; color:#7dd3fc; text-transform:uppercase;">LIVE GPS FIX</div>
+                    <div style="font-size:0.88rem; font-weight:700; color:#f8fafc; margin-top:2px;">17.4435° N, 78.3772° E</div>
+                    <div style="font-size:0.72rem; color:#94a3b8;">12 MG Road, Bengaluru</div>
+                </div>
+                <a href="https://maps.google.com/?q=17.4435,78.3772" target="_blank" style="text-decoration:none;">
+                    <span style="padding:6px 12px; background:rgba(56,189,248,0.15); border:1px solid #38bdf8; border-radius:8px; font-size:0.75rem; color:#38bdf8; font-weight:800;">
+                        🗺️ View Map
+                    </span>
+                </a>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+# -----------------------------------------------------------------------------
 # FLOATING GLASS BOTTOM NAVIGATION BAR (DOCKS ON ALL SCREENS)
 # -----------------------------------------------------------------------------
 st.markdown("<div style='height: 4.8rem;'></div>", unsafe_allow_html=True)
 
-nav_cols = st.columns(5)
+nav_cols = st.columns(6)
 tabs = [
     ("Home", "⌂"),
     ("Alerts", "!"),
     ("Map", "⌖"),
+    ("Women", "🌸"),
     ("Sim", "⚡"),
     ("Profile", "●"),
 ]

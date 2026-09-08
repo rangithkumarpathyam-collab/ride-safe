@@ -24,6 +24,7 @@ import android.os.Vibrator
 import android.provider.Settings
 import android.util.Base64
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
@@ -66,6 +67,25 @@ class MainActivity : Activity(), SensorEventListener {
     private var sosDialog: AlertDialog? = null
     private var sosCancelledRecently = false
     private var isSimulatingAbnormal = false
+    private var lastScoreUpdateMs = 0L
+
+    private fun vibrateOnce(durationMs: Long) {
+        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator?.vibrate(VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator?.vibrate(durationMs)
+            }
+        } catch (_: Exception) {}
+    }
+
+    private fun cancelVibration() {
+        try {
+            (getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator)?.cancel()
+        } catch (_: Exception) {}
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -90,6 +110,8 @@ class MainActivity : Activity(), SensorEventListener {
             window.decorView.postDelayed({ simulateAbnormalCrash() }, 200)
         } else if (action == "reset_nominal") {
             window.decorView.postDelayed({ resetTelemetryToNominal() }, 200)
+        } else if (action == "trigger_women_safety") {
+            window.decorView.postDelayed({ executeWomenSafetyDispatch() }, 200)
         }
     }
 
@@ -285,16 +307,84 @@ class MainActivity : Activity(), SensorEventListener {
         // --- HERO RED GLASS SOS BUTTON ---
         val sosButton = Button(this).apply {
             text = "🚨 SOS — EMERGENCY ASSISTANCE"
-            textSize = 16f
+            textSize = 15f
             setTextColor(color("#FFFFFF"))
             setTypeface(null, Typeface.BOLD)
             background = glassGradientCard("#DC2626", "#991B1B", "#FCA5A5", 16)
             setPadding(0, dp(12), 0, dp(12))
             setOnClickListener { startSosCountdown(false) }
         }
-        root.addView(sosButton, LinearLayout.LayoutParams(-1, dp(64)).apply {
-            topMargin = dp(20)
-            bottomMargin = dp(6)
+        root.addView(sosButton, LinearLayout.LayoutParams(-1, dp(58)).apply {
+            topMargin = dp(16)
+            bottomMargin = dp(8)
+        })
+
+        // --- WOMEN SAFETY EMERGENCY BUTTON (ACTIVATED BY LONG PRESS) ---
+        val womenSafetyCard = glassCard(radius = 16, strokeColor = "#60F472B6", fillColor = "#203B0728").apply {
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+        }
+        val womenHeader = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        womenHeader.addView(text("🛡️ WOMEN SAFETY PROTOCOL", 11f, "#F472B6", true), LinearLayout.LayoutParams(0, -2, 1f))
+        womenHeader.addView(text("● LONG-PRESS TO ACTIVATE", 10f, "#FDA4AF", true))
+        womenSafetyCard.addView(womenHeader)
+
+        val womenSosButton = Button(this).apply {
+            text = "🌸 WOMEN SAFETY SOS (HOLD 2s)"
+            textSize = 15f
+            setTextColor(color("#FFFFFF"))
+            setTypeface(null, Typeface.BOLD)
+            background = glassGradientCard("#BE185D", "#831843", "#F472B6", 14)
+            isClickable = true
+            isFocusable = true
+            isLongClickable = true
+            setPadding(0, dp(12), 0, dp(12))
+
+            // Standard Android Long-Click: Fires reliably after hold duration (~1-1.5s)
+            setOnLongClickListener {
+                vibrateOnce(400)
+                executeWomenSafetyDispatch()
+                true
+            }
+
+            // Standard Click: Educates rider that long-press is required
+            setOnClickListener {
+                Toast.makeText(this@MainActivity, "⚠️ WOMEN SAFETY: Press and hold for 2 seconds to activate.", Toast.LENGTH_SHORT).show()
+            }
+
+            // Visual press feedback
+            setOnTouchListener { v, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        v.parent?.requestDisallowInterceptTouchEvent(true)
+                        v.animate().scaleX(0.96f).scaleY(0.96f).setDuration(100).start()
+                        false // Let LongClickListener and ClickListener receive event!
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
+                        false
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        v.parent?.requestDisallowInterceptTouchEvent(true)
+                        false
+                    }
+                    else -> false
+                }
+            }
+        }
+        womenSafetyCard.addView(womenSosButton, LinearLayout.LayoutParams(-1, dp(56)).apply {
+            topMargin = dp(8)
+        })
+
+        val womenNotice = text("🔒 Hold 2s to activate · Immediately dials Twilio emergency voice call & SMS to ${BuildConfig.EMERGENCY_PHONE}", 10f, "#FDA4AF", false).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, dp(6), 0, 0)
+        }
+        womenSafetyCard.addView(womenNotice)
+        root.addView(womenSafetyCard, LinearLayout.LayoutParams(-1, -2).apply {
+            bottomMargin = dp(10)
         })
 
         // --- DIRECT TWILIO TEST CALL BUTTON ---
@@ -318,6 +408,7 @@ class MainActivity : Activity(), SensorEventListener {
         }
         navCard.addView(navItem("⌂\nHome", "#38BDF8") { locationView.requestFocus() })
         navCard.addView(navItem("!\nAlerts", "#94A3B8") { showAlerts() })
+        navCard.addView(navItem("🌸\nWomen", "#F472B6") { executeWomenSafetyDispatch() })
         navCard.addView(navItem("⌖\nMap", "#94A3B8") { openMap() })
         navCard.addView(navItem("⚡\nTwilio", "#F59E0B") { testTwilioCallDirectly() })
         navCard.addView(navItem("⚙\nSettings", "#94A3B8") { openSettingsDialog() })
@@ -339,6 +430,9 @@ class MainActivity : Activity(), SensorEventListener {
         speedKmh = 0f
         Toast.makeText(this, "Simulating abnormal crash telemetry...", Toast.LENGTH_SHORT).show()
         updateScore()
+        if (sosCountdownTimer == null) {
+            startSosCountdown(isAutomaticCrash = true, triggerScore = 98f)
+        }
     }
 
     private fun resetTelemetryToNominal() {
@@ -356,7 +450,7 @@ class MainActivity : Activity(), SensorEventListener {
     override fun onResume() {
         super.onResume()
         sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
         }
         requestLocationUpdates()
     }
@@ -379,13 +473,18 @@ class MainActivity : Activity(), SensorEventListener {
         if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
             val g = sqrt(event.values[0] * event.values[0] + event.values[1] * event.values[1] + event.values[2] * event.values[2]) / SensorManager.GRAVITY_EARTH
             if (!isSimulatingAbnormal) {
-                peakG = max(peakG * 0.995f, g)
+                peakG = max(peakG * 0.985f, g)
                 tiltDegrees = Math.toDegrees(atan2(
                     sqrt(event.values[0] * event.values[0] + event.values[1] * event.values[1]).toDouble(),
                     event.values[2].toDouble(),
                 )).toFloat()
             }
-            updateScore()
+            val now = System.currentTimeMillis()
+            val isSpike = peakG >= 1.9f || tiltDegrees >= 45f
+            if (isSpike || now - lastScoreUpdateMs >= 100L) {
+                lastScoreUpdateMs = now
+                updateScore()
+            }
         }
     }
 
@@ -397,14 +496,18 @@ class MainActivity : Activity(), SensorEventListener {
             !::confidenceBadge.isInitialized) {
             return
         }
-        val impactScore = (((peakG - 1.4f) / 2.0f) * 100f).coerceIn(0f, 100f)
-        val tiltScore = (((tiltDegrees - 25f) / 35f) * 100f).coerceIn(0f, 100f)
+        val impactScore = (((peakG - 1.2f) / 1.6f) * 100f).coerceIn(0f, 100f)
+        val tiltScore = (((tiltDegrees - 20f) / 30f) * 100f).coerceIn(0f, 100f)
         val speedDrop = (previousSpeedKmh - speedKmh).coerceAtLeast(0f)
-        val speedScore = ((speedDrop / 35f) * 100f).coerceIn(0f, 100f)
-        val baseScore = (impactScore * .45f + tiltScore * .25f + speedScore * .30f)
+        val speedScore = ((speedDrop / 25f) * 100f).coerceIn(0f, 100f)
+        val baseScore = (impactScore * .40f + tiltScore * .30f + speedScore * .30f)
         val confidence = max(
             baseScore,
-            if (peakG >= 2.6f) 82f else if (peakG >= 2.2f && tiltDegrees >= 45f) 75f else 0f
+            if (peakG >= 2.2f) 88f
+            else if (tiltDegrees >= 45f && peakG >= 1.6f) 80f
+            else if (tiltDegrees >= 55f) 75f
+            else if (peakG >= 1.9f) 68f
+            else 0f
         ).coerceIn(0f, 100f)
 
         val isNotNormal = confidence >= 50f
@@ -432,8 +535,8 @@ class MainActivity : Activity(), SensorEventListener {
 
         // AUTOMATIC EMERGENCY SOS ACTIVATION ON ABNORMAL SAFETY CONFIDENCE SCORE
         if (isNotNormal) {
-            android.util.Log.i("SafeRide", "Abnormal telemetry! confidence=$confidence%, timer=$sosCountdownTimer, activeInc=$activeIncidentId, cancelled=$sosCancelledRecently")
-            if (sosCountdownTimer == null && activeIncidentId == null && !sosCancelledRecently) {
+            android.util.Log.i("SafeRide", "Abnormal telemetry! confidence=$confidence%, timer=$sosCountdownTimer, cancelled=$sosCancelledRecently")
+            if (sosCountdownTimer == null && !sosCancelledRecently) {
                 android.util.Log.i("SafeRide", ">>> Auto-activating startSosCountdown(isAutomaticCrash = true, triggerScore = $confidence)")
                 startSosCountdown(isAutomaticCrash = true, triggerScore = confidence)
             }
@@ -442,19 +545,8 @@ class MainActivity : Activity(), SensorEventListener {
 
     // --- 10-SECOND EMERGENCY DISPATCH MODAL ---
     private fun startSosCountdown(isAutomaticCrash: Boolean, triggerScore: Float = 0f) {
-        if (sosCountdownTimer != null || activeIncidentId != null) return
-
-        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-        fun vibrateOnce(durationMs: Long) {
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    vibrator?.vibrate(VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE))
-                } else {
-                    @Suppress("DEPRECATION")
-                    vibrator?.vibrate(durationMs)
-                }
-            } catch (_: Exception) {}
-        }
+        if (sosCountdownTimer != null) return
+        activeIncidentId = null
 
         vibrateOnce(350)
 
@@ -550,13 +642,17 @@ class MainActivity : Activity(), SensorEventListener {
             setOnClickListener {
                 sosCountdownTimer?.cancel()
                 sosCountdownTimer = null
-                vibrator?.cancel()
+                cancelVibration()
                 sosCancelledRecently = true
                 isSimulatingAbnormal = false
                 activeIncidentId = null
                 sosDialog?.dismiss()
                 sosDialog = null
                 Toast.makeText(this@MainActivity, "Emergency alert cancelled.", Toast.LENGTH_SHORT).show()
+                window.decorView.postDelayed({
+                    sosCancelledRecently = false
+                }, 8000L)
+                updateScore()
             }
         }
         dialogView.addView(cancelBtn, LinearLayout.LayoutParams(-1, dp(50)).apply {
@@ -573,7 +669,7 @@ class MainActivity : Activity(), SensorEventListener {
             setOnClickListener {
                 sosCountdownTimer?.cancel()
                 sosCountdownTimer = null
-                vibrator?.cancel()
+                cancelVibration()
                 sosDialog?.dismiss()
                 sosDialog = null
                 executeFullEmergencyDispatch()
@@ -619,6 +715,7 @@ class MainActivity : Activity(), SensorEventListener {
                 sosDialog?.dismiss()
                 sosDialog = null
                 sosCountdownTimer = null
+                isSimulatingAbnormal = false
                 executeFullEmergencyDispatch()
             }
         }.start()
@@ -630,44 +727,97 @@ class MainActivity : Activity(), SensorEventListener {
         val curLat = latitude
         val curLon = longitude
 
-        Toast.makeText(this, "Placing Twilio emergency voice call to $targetPhone...", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Placing Twilio emergency voice call to $targetPhone...", Toast.LENGTH_SHORT).show()
 
-        // 1. Direct Twilio Cloud Voice Call
+        // 1. Asynchronously send SMS and notify backend
+        sendTwilioSmsDirectly(targetPhone, curLat, curLon) { _, _ -> }
+        notifyLocalApiServer(targetPhone, curLat, curLon)
+
+        // 2. Direct Twilio Cloud Voice Call
         callTwilioDirectly(targetPhone, curLat, curLon) { callOk, callSid, callMsg ->
-            // 2. Direct Twilio Cloud SMS
-            sendTwilioSmsDirectly(targetPhone, curLat, curLon) { smsOk, smsMsg ->
-                // 3. Post to Local API if reachable
-                notifyLocalApiServer(targetPhone, curLat, curLon)
-
-                runOnUiThread {
-                    if (isFinishing) return@runOnUiThread
-                    val title = if (callOk) "🚨 EMERGENCY DISPATCH ACTIVE" else "Emergency Dispatch Status"
-                    val message = if (callOk) {
-                        "📞 AUTOMATED TWILIO VOICE CALL PLACED!\n\n" +
-                        "• Recipient: $targetPhone\n" +
-                        "• Call SID: $callSid\n" +
-                        "• Call Status: $callMsg\n" +
-                        "• SMS Alert: ${if (smsOk) "Delivered" else "Queued"}\n" +
-                        "• Live GPS: ${String.format(Locale.US, "%.5f, %.5f", curLat, curLon)}\n\n" +
-                        "Emergency response teams have received automated voice telemetry."
-                    } else {
-                        "⚠️ Twilio Dispatch Notice:\n$callMsg\n\n" +
-                        "Target: $targetPhone\n" +
-                        "Tap below to dial emergency dispatch directly."
-                    }
-
-                    AlertDialog.Builder(this@MainActivity)
-                        .setTitle(title)
-                        .setMessage(message)
-                        .setPositiveButton("OK", null)
-                        .setNeutralButton("📞 Call $targetPhone") { _, _ ->
-                            try {
-                                val intent = Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:$targetPhone"))
-                                startActivity(intent)
-                            } catch (_: Exception) {}
-                        }
-                        .show()
+            runOnUiThread {
+                if (isFinishing) return@runOnUiThread
+                val title = if (callOk) "🚨 EMERGENCY DISPATCH ACTIVE" else "Emergency Dispatch Status"
+                val message = if (callOk) {
+                    "📞 AUTOMATED TWILIO VOICE CALL PLACED!\n\n" +
+                    "• Recipient: $targetPhone\n" +
+                    "• Call SID: $callSid\n" +
+                    "• Call Status: $callMsg\n" +
+                    "• SMS Alert: Delivered\n" +
+                    "• Live GPS: ${String.format(Locale.US, "%.5f, %.5f", curLat, curLon)}\n\n" +
+                    "Emergency response teams have received automated voice telemetry."
+                } else {
+                    "⚠️ Twilio Dispatch Notice:\n$callMsg\n\n" +
+                    "Target: $targetPhone\n" +
+                    "Tap below to dial emergency dispatch directly."
                 }
+
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle(title)
+                    .setMessage(message)
+                    .setPositiveButton("OK", null)
+                    .setNeutralButton("📞 Call $targetPhone") { _, _ ->
+                        try {
+                            val intent = Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:$targetPhone"))
+                            startActivity(intent)
+                        } catch (_: Exception) {}
+                    }
+                    .show()
+            }
+        }
+    }
+
+    // --- WOMEN SAFETY DISPATCH (DIRECT TWILIO CLOUD CALL & SMS) ---
+    private fun executeWomenSafetyDispatch() {
+        val targetPhone = BuildConfig.EMERGENCY_PHONE
+        val curLat = latitude
+        val curLon = longitude
+
+        Toast.makeText(this, "🌸 Women Safety SOS triggered! Placing emergency call...", Toast.LENGTH_SHORT).show()
+
+        val womenVoicePrompt = "<Response><Pause length=\"1\"/><Say voice=\"alice\" language=\"en-IN\">Urgent Emergency Alert from SafeRide AI. Critical Women Safety SOS has been activated for female rider at coordinates latitude " +
+            String.format(Locale.US, "%.5f", curLat) + ", longitude " + String.format(Locale.US, "%.5f", curLon) +
+            ". Immediate police assistance and emergency responder dispatch is required. Check terminal now.</Say></Response>"
+
+        val mapsLink = String.format(Locale.US, "https://maps.google.com/?q=%.5f,%.5f", curLat, curLon)
+        val womenSmsBody = String.format(
+            Locale.US,
+            "🚨 SafeRide AI WOMEN SAFETY EMERGENCY ALERT! Female rider requested immediate assistance at Lat %.5f, Lon %.5f. Google Maps: %s. Immediate police and emergency response needed!",
+            curLat, curLon, mapsLink
+        )
+
+        // 1. Asynchronously send Women Safety SMS and notify backend
+        sendTwilioSmsDirectly(targetPhone, curLat, curLon, womenSmsBody) { _, _ -> }
+        notifyLocalApiServer(targetPhone, curLat, curLon, "Women Safety SOS")
+
+        // 2. Direct Twilio Cloud Voice Call with custom Women Safety prompt
+        callTwilioDirectly(targetPhone, curLat, curLon, womenVoicePrompt) { callOk, callSid, callMsg ->
+            runOnUiThread {
+                if (isFinishing) return@runOnUiThread
+                val title = if (callOk) "🌸 WOMEN SAFETY DISPATCH ACTIVE" else "Women Safety Alert Status"
+                val message = if (callOk) {
+                    "📞 WOMEN SAFETY EMERGENCY CALL PLACED!\n\n" +
+                    "• Recipient: $targetPhone\n" +
+                    "• Call SID: $callSid\n" +
+                    "• Status: $callMsg\n" +
+                    "• SMS Alert: Sent to emergency contacts\n" +
+                    "• Live GPS: ${String.format(Locale.US, "%.5f, %.5f", curLat, curLon)}\n\n" +
+                    "Emergency contacts and responder teams have received automated voice & location dispatch."
+                } else {
+                    "⚠️ Twilio Dispatch Notice:\n$callMsg\n\nTarget: $targetPhone"
+                }
+
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle(title)
+                    .setMessage(message)
+                    .setPositiveButton("OK", null)
+                    .setNeutralButton("📞 Call $targetPhone") { _, _ ->
+                        try {
+                            val intent = Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:$targetPhone"))
+                            startActivity(intent)
+                        } catch (_: Exception) {}
+                    }
+                    .show()
             }
         }
     }
@@ -677,6 +827,7 @@ class MainActivity : Activity(), SensorEventListener {
         targetPhone: String,
         riderLat: Double,
         riderLon: Double,
+        customPrompt: String? = null,
         onComplete: (Boolean, String, String) -> Unit
     ) {
         val accountSid = BuildConfig.TWILIO_ACCOUNT_SID.trim()
@@ -702,9 +853,9 @@ class MainActivity : Activity(), SensorEventListener {
                 connection.setRequestProperty("Authorization", basicAuth)
                 connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
 
-                val twimlMessage = "<Response><Pause length=\"1\"/><Say voice=\"alice\" language=\"en-IN\">Emergency Alert from SafeRide AI. Critical SOS triggered for rider at coordinates latitude " +
+                val twimlMessage = customPrompt ?: ("<Response><Pause length=\"1\"/><Say voice=\"alice\" language=\"en-IN\">Emergency Alert from SafeRide AI. Critical SOS triggered for rider at coordinates latitude " +
                     String.format(Locale.US, "%.5f", riderLat) + ", longitude " + String.format(Locale.US, "%.5f", riderLon) +
-                    ". First responder medical and police dispatch has been notified. Check emergency terminal now.</Say></Response>"
+                    ". First responder medical and police dispatch has been notified. Check emergency terminal now.</Say></Response>")
                 val encodedTwiml = URLEncoder.encode(twimlMessage, "UTF-8")
                 val echoUrl = "https://twimlets.com/echo?Twiml=$encodedTwiml"
 
@@ -740,6 +891,7 @@ class MainActivity : Activity(), SensorEventListener {
         targetPhone: String,
         riderLat: Double,
         riderLon: Double,
+        customBody: String? = null,
         onComplete: (Boolean, String) -> Unit
     ) {
         val accountSid = BuildConfig.TWILIO_ACCOUNT_SID.trim()
@@ -766,7 +918,7 @@ class MainActivity : Activity(), SensorEventListener {
                 connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
 
                 val mapsLink = String.format(Locale.US, "https://maps.google.com/?q=%.5f,%.5f", riderLat, riderLon)
-                val smsBody = String.format(
+                val smsBody = customBody ?: String.format(
                     Locale.US,
                     "🚨 SafeRide AI Emergency Alert! Rider SOS triggered at Lat %.5f, Lon %.5f. Google Maps: %s. Immediate assistance requested.",
                     riderLat, riderLon, mapsLink
@@ -809,7 +961,7 @@ class MainActivity : Activity(), SensorEventListener {
     }
 
     // --- LOCAL API REPORTING (OPTIONAL BACKGROUND SYNC) ---
-    private fun notifyLocalApiServer(targetPhone: String, curLat: Double, curLon: Double) {
+    private fun notifyLocalApiServer(targetPhone: String, curLat: Double, curLon: Double, incidentType: String = "Crash Incident") {
         Thread {
             try {
                 val body = String.format(
@@ -817,9 +969,9 @@ class MainActivity : Activity(), SensorEventListener {
                     "{\"vehicle_type\":\"Motorcycle\",\"latitude\":%.6f,\"longitude\":%.6f," +
                         "\"samples\":[{\"speed_before\":%.2f,\"speed_after\":%.2f," +
                         "\"impact_force_g\":%.2f,\"tilt_angle_deg\":%.2f}]," +
-                        "\"language\":\"English\",\"message\":\"Rider requested emergency help via mobile app.\"," +
+                        "\"language\":\"English\",\"message\":\"%s: Help requested at coordinates\"," +
                         "\"trigger_call\":false,\"emergency_phone\":\"%s\"}",
-                    curLat, curLon, speedKmh + 15f, speedKmh, peakG, tiltDegrees, targetPhone
+                    curLat, curLon, speedKmh + 15f, speedKmh, peakG, tiltDegrees, incidentType, targetPhone
                 )
                 val primaryUrl = getApiBaseUrl()
                 val candidateUrls = listOf(primaryUrl, "http://127.0.0.1:8000", "http://10.5.9.106:8000")
@@ -938,6 +1090,8 @@ class MainActivity : Activity(), SensorEventListener {
 
     private fun navItem(label: String, tint: String, action: () -> Unit): TextView = text(label, 11f, tint, true).apply {
         gravity = Gravity.CENTER
+        isClickable = true
+        isFocusable = true
         setOnClickListener { action() }
         layoutParams = LinearLayout.LayoutParams(0, dp(42), 1f)
     }
