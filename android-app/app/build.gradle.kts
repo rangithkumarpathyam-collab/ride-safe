@@ -1,3 +1,5 @@
+import com.android.build.gradle.AppExtension
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -25,4 +27,18 @@ android {
 
 kotlin {
     jvmToolchain(17)
+}
+
+val setupAdbReverse = tasks.register<Exec>("setupAdbReverse") {
+    description = "Forward host API port 8000 to connected USB device"
+    val adb = (project.extensions.getByName("android") as AppExtension).adbExecutable.absolutePath
+    commandLine(adb, "reverse", "tcp:8000", "tcp:8000")
+    isIgnoreExitValue = true
+    doLast {
+        println("SafeRide: Configured adb reverse tcp:8000 tcp:8000")
+    }
+}
+
+tasks.matching { it.name.startsWith("install") || it.name.startsWith("assemble") }.configureEach {
+    finalizedBy(setupAdbReverse)
 }

@@ -10,6 +10,8 @@ from pydantic import BaseModel, Field
 
 import accident_detection as ad
 import database as db
+import geocoding as geo
+import notifications as notify
 
 load_dotenv()
 
@@ -42,6 +44,8 @@ class IncidentRequest(BaseModel):
         default="Possible crash detected. Please send help to my location.",
         max_length=500,
     )
+    trigger_call: bool = Field(default=True)
+    emergency_phone: Optional[str] = Field(default=None, max_length=40)
 
 
 class LocationUpdate(BaseModel):
@@ -75,6 +79,10 @@ def create_incident(payload: IncidentRequest, authorization: Optional[str] = Hea
         vehicle_type=payload.vehicle_type,
     )
     rider_status = "NEED HELP" if detection["accident_detected"] else "PENDING_CHECK"
+
+    geo_info = geo.reverse_geocode(payload.latitude, payload.longitude)
+    address = geo_info.get("formatted_address") or f"Zone ({payload.latitude}, {payload.longitude})"
+
     incident_id = db.create_incident(
         vehicle_type=payload.vehicle_type,
         latitude=payload.latitude,
@@ -86,9 +94,39 @@ def create_incident(payload: IncidentRequest, authorization: Optional[str] = Hea
         status="REPORTED",
     )
 
+    emergency_call_result = None
+    sms_result = None
+    target_phone = payload.emergency_phone or notify.EMERGENCY_DISPATCH_PHONE
+
+    # Trigger Twilio Voice Call and SMS if requested (default True for emergency dispatch)
+    if payload.trigger_call:
+        incident_data = {
+            "incident_id": incident_id,
+            "vehicle_type": payload.vehicle_type,
+            "confidence": detection["confidence"],
+            "latitude": payload.latitude,
+            "longitude": payload.longitude,
+            "rider_status": rider_status,
+            "city": address,
+        }
+        emergency_call_result = notify.trigger_emergency_call(incident_data, to_phone=target_phone)
+        sms_result = notify.send_emergency_sms(incident_data, to_phone=target_phone)
+        notify.send_whatsapp_location(incident_data, to_phone=target_phone, address=address)
+
+        call_status = "Dispatched" if emergency_call_result.get("success") else f"Notice ({emergency_call_result.get('error')})"
+        db.add_incident_message(
+            incident_id,
+            "System",
+            f"📞 Automated Emergency Call to {target_phone}: {call_status} (SID: {emergency_call_result.get('sid', 'N/A')})"
+        )
+
     return {
         "incident_id": incident_id,
         "rider_status": rider_status,
+        "address": address,
+        "emergency_call": emergency_call_result,
+        "sms": sms_result,
+        "target_phone": target_phone,
         "detection": {
             "accident_detected": detection["accident_detected"],
             "confidence": detection["confidence"],
@@ -98,6 +136,29 @@ def create_incident(payload: IncidentRequest, authorization: Optional[str] = Hea
             "confirmation_reason": detection["confirmation_reason"],
         },
     }
+
+
+@app.post("/api/v1/incidents/{incident_id}/call")
+def dispatch_incident_call(
+    incident_id: str,
+    to_phone: Optional[str] = None,
+    authorization: Optional[str] = Header(default=None),
+) -> dict:
+    """Explicitly trigger an automated Twilio voice call for an existing incident."""
+    require_api_access(authorization)
+    incident = db.get_incident(incident_id)
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    geo_info = geo.reverse_geocode(incident["latitude"], incident["longitude"])
+    address = geo_info.get("formatted_address") or f"Zone ({incident['latitude']}, {incident['longitude']})"
+    target = to_phone or notify.EMERGENCY_DISPATCH_PHONE
+    call_result = notify.trigger_emergency_call(dict(incident), to_phone=target)
+    db.add_incident_message(
+        incident_id,
+        "System",
+        f"📞 Emergency Call dispatched to {target}: {call_result.get('status', 'queued')} (SID: {call_result.get('sid', 'N/A')})"
+    )
+    return {"incident_id": incident_id, "call": call_result}
 
 
 @app.put("/api/v1/incidents/{incident_id}/location")
