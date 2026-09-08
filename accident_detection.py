@@ -76,16 +76,16 @@ def calculate_impact_score(impact_force_g: float) -> float:
     """
     Calculates a normalized score (0 to 100) based on peak G-force.
     
-    Normal riding / potholes: 1.0G - 2.2G (Score ~ 0-25)
-    Harsh braking / curb bump: 2.2G - 3.5G (Score ~ 25-50)
-    Moderate accident impact: 3.5G - 5.5G (Score ~ 50-80)
-    Severe crash collision: > 5.5G - 8.0G+ (Score ~ 80-100)
+    Normal riding / bumps / potholes: 1.0G - 2.8G (Score ~ 0)
+    Curb strikes / harsh braking: 2.8G - 3.5G (Score ~ 0-25)
+    High-impact collision start: > 3.0G - 5.5G (Score ~ 25-75)
+    Severe crash collision: > 5.5G - 8.5G+ (Score ~ 75-100)
     """
-    if impact_force_g <= 1.8:
+    if impact_force_g <= 2.8:
         return 0.0
     
-    # 1.8G to 6.5G mapped linearly to 0 -> 100
-    score = ((impact_force_g - 1.8) / (6.5 - 1.8)) * 100.0
+    # 2.8G to 7.5G mapped linearly to 0 -> 100
+    score = ((impact_force_g - 2.8) / (7.5 - 2.8)) * 100.0
     return round(min(100.0, max(0.0, score)), 2)
 
 
@@ -105,14 +105,14 @@ def calculate_tilt_score(tilt_angle_deg: float, vehicle_type: str = "Motorcycle"
     
     if is_four_wheeler:
         # Rollover threshold is lower for cars
-        if tilt_angle_deg <= 20.0:
+        if tilt_angle_deg <= 28.0:
             return 0.0
-        score = ((tilt_angle_deg - 20.0) / (60.0 - 20.0)) * 100.0
+        score = ((tilt_angle_deg - 28.0) / (65.0 - 28.0)) * 100.0
     else:
-        # Two-wheelers
-        if tilt_angle_deg <= 30.0:
+        # Two-wheelers: normal riding lean is up to 35-40 degrees
+        if tilt_angle_deg <= 48.0:
             return 0.0
-        score = ((tilt_angle_deg - 30.0) / (75.0 - 30.0)) * 100.0
+        score = ((tilt_angle_deg - 48.0) / (85.0 - 48.0)) * 100.0
 
     return round(min(100.0, max(0.0, score)), 2)
 

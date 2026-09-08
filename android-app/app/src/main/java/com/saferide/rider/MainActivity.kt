@@ -130,18 +130,18 @@ class MainActivity : Activity(), SensorEventListener {
         }
 
         // --- TOP OPERATOR GLASS HEADER ---
-        val headerCard = glassCard(radius = 18, strokeColor = "#3538BDF8", fillColor = "#180F1D36").apply {
+        val headerCard = glassCard(radius = 20, strokeColor = "#4038BDF8", fillColor = "#1C0F1D38").apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(14), dp(12), dp(14), dp(12))
+            setPadding(dp(16), dp(14), dp(16), dp(14))
         }
 
         val avatar = TextView(this).apply {
             text = "🏍️"
-            textSize = 22f
+            textSize = 24f
             gravity = Gravity.CENTER
-            background = glassGradientCard("#2563EB", "#0284C7", "#60FFFFFF", 16)
-            layoutParams = LinearLayout.LayoutParams(dp(46), dp(46)).apply { marginEnd = dp(12) }
+            background = glassGradientCard("#2563EB", "#0284C7", "#8038BDF8", 16)
+            layoutParams = LinearLayout.LayoutParams(dp(48), dp(48)).apply { marginEnd = dp(14) }
         }
         headerCard.addView(avatar)
 
@@ -149,17 +149,17 @@ class MainActivity : Activity(), SensorEventListener {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         }
-        headerText.addView(text("SafeRide AI", 17f, "#F8FAFC", true))
-        headerText.addView(text("Rider Safety Companion", 11f, "#94A3B8", false))
+        headerText.addView(text("SafeRide AI", 18f, "#F8FAFC", true))
+        headerText.addView(text("Active Protection Mode · Real-Time Guard", 11f, "#38BDF8", false))
         headerCard.addView(headerText)
 
         val livePill = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             background = roundedBackground("#064E3B", 999, "#10B981")
-            setPadding(dp(10), dp(5), dp(10), dp(5))
+            setPadding(dp(12), dp(6), dp(12), dp(6))
         }
-        livePill.addView(text("● LIVE", 11f, "#34D399", true))
+        livePill.addView(text("● ARMED", 11f, "#34D399", true))
         headerCard.addView(livePill)
         root.addView(headerCard)
 
@@ -167,10 +167,10 @@ class MainActivity : Activity(), SensorEventListener {
         val telemetryChip = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            background = roundedBackground("#082F49", 12, "#0284C7")
-            setPadding(dp(12), dp(7), dp(12), dp(7))
+            background = roundedBackground("#0C1A2E", 14, "#0284C7")
+            setPadding(dp(14), dp(8), dp(14), dp(8))
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply {
-                topMargin = dp(10)
+                topMargin = dp(12)
                 bottomMargin = dp(4)
             }
         }
@@ -179,25 +179,25 @@ class MainActivity : Activity(), SensorEventListener {
         root.addView(telemetryChip)
 
         // --- LIVE RIDE SIGNALS HUD ---
-        root.addView(section("LIVE RIDE TELEMETRY"))
+        root.addView(section("LIVE TELEMETRY HUD"))
         val hudRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(0, dp(2), 0, dp(6))
+            setPadding(0, dp(4), 0, dp(6))
         }
-        impactView = statTile(hudRow, "IMPACT", "0.00 G", "#38BDF8")
-        tiltView = statTile(hudRow, "TILT", "0.0°", "#F59E0B")
-        speedView = statTile(hudRow, "SPEED", "0 km/h", "#34D399")
+        impactView = statTile(hudRow, "PEAK IMPACT", "0.00 G", "#38BDF8")
+        tiltView = statTile(hudRow, "TILT ANGLE", "0.0°", "#F59E0B")
+        speedView = statTile(hudRow, "GPS SPEED", "0 km/h", "#34D399")
         root.addView(hudRow)
 
         // --- AI RISK MONITOR GLASS CARD ---
         root.addView(section("AI CRASH RISK EVALUATION"))
-        val scoreCard = glassCard(radius = 18, strokeColor = "#3038BDF8", fillColor = "#1413233F").apply {
+        val scoreCard = glassCard(radius = 20, strokeColor = "#3538BDF8", fillColor = "#1613233F").apply {
             gravity = Gravity.CENTER
-            setPadding(dp(16), dp(16), dp(16), dp(16))
+            setPadding(dp(18), dp(18), dp(18), dp(18))
         }
         scoreCard.addView(text("SAFETY CONFIDENCE SCORE", 11f, "#7DD3FC", true))
 
-        confidenceView = text("0%", 54f, "#34D399", true).apply {
+        confidenceView = text("0%", 56f, "#34D399", true).apply {
             gravity = Gravity.CENTER
             setPadding(0, dp(4), 0, dp(2))
         }
@@ -206,20 +206,20 @@ class MainActivity : Activity(), SensorEventListener {
         confidenceBadge = text("🟢 ALL TELEMETRY NOMINAL · RIDE SAFE", 11f, "#34D399", true).apply {
             gravity = Gravity.CENTER
             background = roundedBackground("#064E3B", 999, "#10B981")
-            setPadding(dp(14), dp(5), dp(14), dp(5))
+            setPadding(dp(16), dp(6), dp(16), dp(6))
         }
         scoreCard.addView(confidenceBadge)
 
-        scoreCard.addView(text("Real-time fusion of Accelerometer, Gyro Tilt & GPS Speed", 10f, "#64748B", false).apply {
+        scoreCard.addView(text("Rule-Based Fusion: Accelerometer (3.0G+), Gyro Tilt (65°+) & GPS Speed Drop", 10f, "#94A3B8", false).apply {
             gravity = Gravity.CENTER
-            setPadding(0, dp(8), 0, dp(8))
+            setPadding(0, dp(8), 0, dp(4))
         })
 
         root.addView(scoreCard)
 
         // --- LIVE GPS & GIS NAVIGATION CARD ---
         root.addView(section("LIVE GPS SATELLITE FIX"))
-        val locationCard = glassCard(radius = 16, strokeColor = "#3038BDF8", fillColor = "#140F1D33").apply {
+        val locationCard = glassCard(radius = 18, strokeColor = "#3538BDF8", fillColor = "#160F1D36").apply {
             setPadding(dp(16), dp(14), dp(16), dp(14))
         }
         val locHeader = LinearLayout(this).apply {
@@ -239,7 +239,8 @@ class MainActivity : Activity(), SensorEventListener {
             text = "🗺️ Open Live Google Maps Route"
             textSize = 12f
             setTextColor(color("#38BDF8"))
-            background = roundedBackground("#0F2942", 10, "#0284C7")
+            setTypeface(null, Typeface.BOLD)
+            background = roundedBackground("#0F2942", 12, "#0284C7")
             setOnClickListener { openMap() }
         }
         locationCard.addView(mapsBtn, LinearLayout.LayoutParams(-1, dp(44)))
@@ -409,7 +410,7 @@ class MainActivity : Activity(), SensorEventListener {
             }
             val now = System.currentTimeMillis()
             // Only flag as spike if BOTH G-force AND tilt are clearly abnormal (avoids false triggers)
-            val isSpike = peakG >= 2.5f || (tiltDegrees >= 65f && peakG >= 1.8f)
+            val isSpike = peakG >= 3.2f || (tiltDegrees >= 65f && peakG >= 2.6f)
             if (isSpike || now - lastScoreUpdateMs >= 200L) {
                 lastScoreUpdateMs = now
                 updateScore()
@@ -426,30 +427,31 @@ class MainActivity : Activity(), SensorEventListener {
             return
         }
 
-        // --- TUNED THRESHOLDS ---
-        // Impact: only starts scoring above 2.5G (real crashes are 3G+, bumps/vibrations are <2G)
-        val impactScore = (((peakG - 2.5f) / 1.5f) * 100f).coerceIn(0f, 100f)
-        // Tilt: only scores above 55° (laying flat is ~90°, normal riding lean <30°, heavy turn ~45°)
-        val tiltScore = (((tiltDegrees - 55f) / 25f) * 100f).coerceIn(0f, 100f)
-        // Speed drop: needs 40+ km/h sudden drop (not a gentle brake)
+        // --- HIGH-IMPACT THRESHOLDS (v2) ---
+        // Impact: starts scoring above 3.0G — motorcycle crashes typically 4–8G, bumps < 2.5G
+        val impactScore = (((peakG - 3.0f) / 2.0f) * 100f).coerceIn(0f, 100f)
+        // Tilt: scores above 65° only — bike leans ~30° in turns, crash = 70–90°
+        val tiltScore = (((tiltDegrees - 65f) / 20f) * 100f).coerceIn(0f, 100f)
+        // Speed drop: 50+ km/h sudden deceleration (hard braking is ~20 km/h drop)
         val speedDrop = (previousSpeedKmh - speedKmh).coerceAtLeast(0f)
-        val speedScore = ((speedDrop / 40f) * 100f).coerceIn(0f, 100f)
+        val speedScore = ((speedDrop / 50f) * 100f).coerceIn(0f, 100f)
 
-        // Weighted base score — need all three signals together for a high score
-        val baseScore = (impactScore * 0.45f + tiltScore * 0.30f + speedScore * 0.25f)
+        // Weighted base — requires multiple signals for a high combined score
+        val baseScore = (impactScore * 0.50f + tiltScore * 0.30f + speedScore * 0.20f)
 
-        // Hard overrides only for truly severe readings (both G AND tilt must be extreme)
+        // Hard overrides: BOTH G-force AND tilt must be extreme simultaneously
         val confidence = max(
             baseScore,
-            if (peakG >= 3.5f && tiltDegrees >= 60f) 92f       // severe crash
-            else if (peakG >= 2.8f && tiltDegrees >= 55f) 82f   // likely crash
-            else if (peakG >= 3.0f && speedDrop >= 30f) 78f     // high impact + sudden stop
-            else if (peakG >= 2.5f && tiltDegrees >= 65f) 70f   // tipped over at speed
+            if (peakG >= 4.5f && tiltDegrees >= 65f) 95f        // catastrophic crash
+            else if (peakG >= 3.8f && tiltDegrees >= 60f) 88f   // severe crash
+            else if (peakG >= 3.5f && speedDrop >= 40f) 82f     // high-speed collision
+            else if (peakG >= 3.0f && tiltDegrees >= 70f) 75f   // tipped over hard
+            else if (peakG >= 4.0f) 70f                         // extreme single impact
             else 0f
         ).coerceIn(0f, 100f)
 
-        // Threshold raised to 65% to avoid false positives from normal riding
-        val isNotNormal = confidence >= 65f
+        // SOS trigger at 70% — requires clearly crash-level readings
+        val isNotNormal = confidence >= 70f
 
         confidenceView.text = String.format(Locale.US, "%.0f%%", confidence)
         if (isNotNormal) {
@@ -457,10 +459,10 @@ class MainActivity : Activity(), SensorEventListener {
             confidenceBadge.text = String.format(Locale.US, "🔴 CRASH RISK DETECTED (%.0f%%)", confidence)
             confidenceBadge.setTextColor(color("#F87171"))
             confidenceBadge.background = roundedBackground("#450A0A", 999, "#EF4444")
-        } else if (confidence >= 40f) {
-            // Warning zone: elevated but not yet triggering SOS
+        } else if (confidence >= 45f) {
+            // Warning zone: elevated readings, monitoring only — no SOS
             confidenceView.setTextColor(color("#F59E0B"))
-            confidenceBadge.text = String.format(Locale.US, "🟡 ELEVATED READING (%.0f%%) — MONITORING", confidence)
+            confidenceBadge.text = String.format(Locale.US, "🟡 ELEVATED IMPACT (%.0f%%) — MONITORING", confidence)
             confidenceBadge.setTextColor(color("#FCD34D"))
             confidenceBadge.background = roundedBackground("#451A03", 999, "#D97706")
         } else {
@@ -468,7 +470,7 @@ class MainActivity : Activity(), SensorEventListener {
             confidenceBadge.text = "🟢 ALL TELEMETRY NOMINAL · RIDE SAFE"
             confidenceBadge.setTextColor(color("#34D399"))
             confidenceBadge.background = roundedBackground("#064E3B", 999, "#10B981")
-            if (confidence < 15f && peakG < 2.0f && tiltDegrees < 45f) {
+            if (confidence < 15f && peakG < 2.5f && tiltDegrees < 50f) {
                 sosCancelledRecently = false
             }
         }
@@ -478,7 +480,7 @@ class MainActivity : Activity(), SensorEventListener {
         speedView.text = String.format(Locale.US, "%.0f km/h", speedKmh)
         sensorStatusView.text = String.format(Locale.US, "⚡ SENSORS ARMED  ·  Peak %.2f G  ·  Tilt %.1f°", peakG, tiltDegrees)
 
-        // Auto SOS only when confidence is clearly crash-level (>= 65%)
+        // Auto SOS: only fire when confidence >= 70% (genuine high-impact crash level)
         if (isNotNormal) {
             if (sosCountdownTimer == null && !sosCancelledRecently) {
                 startSosCountdown(isAutomaticCrash = true, triggerScore = confidence)
