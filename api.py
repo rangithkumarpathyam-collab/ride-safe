@@ -10,6 +10,8 @@ from pydantic import BaseModel, Field
 
 import accident_detection as ad
 import database as db
+import geocoding as geo
+import notifications as notify
 
 load_dotenv()
 
@@ -42,6 +44,8 @@ class IncidentRequest(BaseModel):
         default="Possible crash detected. Please send help to my location.",
         max_length=500,
     )
+    rider_status: Optional[str] = Field(default=None)
+    auto_dispatch: bool = Field(default=True)
 
 
 class LocationUpdate(BaseModel):
@@ -74,21 +78,62 @@ def create_incident(payload: IncidentRequest, authorization: Optional[str] = Hea
         [sample.model_dump() for sample in payload.samples],
         vehicle_type=payload.vehicle_type,
     )
-    rider_status = "NEED HELP" if detection["accident_detected"] else "PENDING_CHECK"
+    
+    # Reverse geocode coordinates to street location
+    geo_res = geo.reverse_geocode(payload.latitude, payload.longitude)
+    address = geo_res.get("formatted_address", f"{payload.latitude}, {payload.longitude}")
+
+    final_rider_status = payload.rider_status or ("NEED HELP" if detection["accident_detected"] else "PENDING_CHECK")
+    final_status = "NO RESPONSE" if final_rider_status == "NO RESPONSE" else ("REPORTED" if detection["accident_detected"] else "RESOLVED")
+
     incident_id = db.create_incident(
         vehicle_type=payload.vehicle_type,
         latitude=payload.latitude,
         longitude=payload.longitude,
         confidence=detection["confidence"],
-        rider_status=rider_status,
+        rider_status=final_rider_status,
         language=payload.language,
         message=payload.message,
-        status="REPORTED",
+        status=final_status,
+        address=address,
     )
+
+    incident_record = {
+        "incident_id": incident_id,
+        "latitude": payload.latitude,
+        "longitude": payload.longitude,
+        "vehicle_type": payload.vehicle_type,
+        "confidence": detection["confidence"],
+        "rider_status": final_rider_status,
+        "address": address,
+        "status": final_status,
+    }
+
+    twilio_results = {}
+    if payload.auto_dispatch and (detection["accident_detected"] or final_rider_status in ["NEED HELP", "NO RESPONSE"]):
+        dest_phone = notify.EMERGENCY_DISPATCH_PHONE or "+917416960828"
+        call_res = notify.trigger_emergency_call(incident_record, to_phone=dest_phone)
+        sms_res = notify.send_emergency_sms(incident_record, to_phone=dest_phone)
+        wa_res = notify.send_whatsapp_location(incident_record, to_phone=dest_phone, address=address)
+        
+        twilio_results = {
+            "call": call_res,
+            "sms": sms_res,
+            "whatsapp": wa_res,
+        }
+        
+        maps_link = wa_res.get('maps_link', f"https://maps.google.com/?q={payload.latitude},{payload.longitude}")
+        db.add_incident_message(
+            incident_id,
+            "System",
+            f"Automated Twilio Emergency Call & Location alert dispatched to {dest_phone}. Map: {maps_link}"
+        )
 
     return {
         "incident_id": incident_id,
-        "rider_status": rider_status,
+        "rider_status": final_rider_status,
+        "status": final_status,
+        "address": address,
         "detection": {
             "accident_detected": detection["accident_detected"],
             "confidence": detection["confidence"],
@@ -97,6 +142,7 @@ def create_incident(payload: IncidentRequest, authorization: Optional[str] = Hea
             "confirmations": detection["confirmations"],
             "confirmation_reason": detection["confirmation_reason"],
         },
+        "twilio_dispatch": twilio_results,
     }
 
 
