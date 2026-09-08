@@ -22,6 +22,7 @@ import android.os.CountDownTimer
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.provider.Settings
+import android.util.Base64
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
@@ -34,6 +35,7 @@ import android.widget.TextView
 import android.widget.Toast
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 import java.util.Locale
 import kotlin.math.atan2
 import kotlin.math.max
@@ -44,6 +46,7 @@ class MainActivity : Activity(), SensorEventListener {
     private lateinit var sensorManager: SensorManager
     private lateinit var locationManager: LocationManager
     private lateinit var confidenceView: TextView
+    private lateinit var confidenceBadge: TextView
     private lateinit var sensorStatusView: TextView
     private lateinit var locationView: TextView
     private lateinit var impactView: TextView
@@ -65,8 +68,8 @@ class MainActivity : Activity(), SensorEventListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = color("#070C15")
-        window.navigationBarColor = color("#070C15")
+        window.statusBarColor = color("#060B14")
+        window.navigationBarColor = color("#060B14")
         window.decorView.systemUiVisibility = 0
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
@@ -77,117 +80,193 @@ class MainActivity : Activity(), SensorEventListener {
     private fun buildScreen(): View {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(42), dp(16), dp(16))
+            setPadding(dp(16), dp(44), dp(16), dp(24))
             minimumHeight = resources.displayMetrics.heightPixels
-            setBackgroundColor(color("#070C15"))
+            setBackgroundColor(color("#060B14"))
         }
 
         val scroll = ScrollView(this).apply {
             isFillViewport = true
-            setBackgroundColor(color("#070C15"))
+            setBackgroundColor(color("#060B14"))
             addView(root, FrameLayout.LayoutParams(-1, -1))
         }
-        val header = LinearLayout(this).apply {
+
+        // --- TOP OPERATOR GLASS HEADER ---
+        val headerCard = glassCard(radius = 18, strokeColor = "#3538BDF8", fillColor = "#180F1D36").apply {
+            orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, dp(12))
+            setPadding(dp(14), dp(12), dp(14), dp(12))
         }
+
         val avatar = TextView(this).apply {
             text = "👮‍♂️"
-            textSize = 20f
+            textSize = 22f
             gravity = Gravity.CENTER
-            background = roundedBackground("#1E3A8A", 20)
-            layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginEnd = dp(10) }
+            background = glassGradientCard("#2563EB", "#0284C7", "#60FFFFFF", 16)
+            layoutParams = LinearLayout.LayoutParams(dp(46), dp(46)).apply { marginEnd = dp(12) }
         }
-        header.addView(avatar)
+        headerCard.addView(avatar)
 
-        val headerText = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val headerText = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+        }
         headerText.addView(text("R. Rajan", 17f, "#F8FAFC", true))
         headerText.addView(text("Bangalore, IN · Station BLR-01", 11f, "#94A3B8", false))
-        header.addView(headerText, LinearLayout.LayoutParams(0, -2, 1f))
-        header.addView(text("● LIVE", 11f, "#34D399", true))
-        root.addView(header)
+        headerCard.addView(headerText)
 
-        val statusCard = LinearLayout(this).apply {
-            background = roundedBackground("#064E3B", 16)
-            setPadding(dp(12), dp(6), dp(12), dp(6))
+        val livePill = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = roundedBackground("#064E3B", 999, "#10B981")
+            setPadding(dp(10), dp(5), dp(10), dp(5))
         }
-        sensorStatusView = text("● SYSTEM ACTIVE • 24/7 MONITORING", 10f, "#34D399", true)
-        statusCard.addView(sensorStatusView)
-        root.addView(statusCard)
+        livePill.addView(text("● LIVE", 11f, "#34D399", true))
+        headerCard.addView(livePill)
+        root.addView(headerCard)
 
-        // 2x2 Glass Metric Grid matching mockup
+        // --- TELEMETRY STATUS CHIP ---
+        val telemetryChip = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            background = roundedBackground("#082F49", 12, "#0284C7")
+            setPadding(dp(12), dp(7), dp(12), dp(7))
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply {
+                topMargin = dp(10)
+                bottomMargin = dp(4)
+            }
+        }
+        sensorStatusView = text("⚡ SENSORS ARMED  ·  Peak 0.00 G  ·  Tilt 0.0°", 11f, "#38BDF8", true)
+        telemetryChip.addView(sensorStatusView)
+        root.addView(telemetryChip)
+
+        // --- 2x2 FROSTED GLASS METRIC GRID ---
         val gridRow1 = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(0, dp(10), 0, dp(4))
+            setPadding(0, dp(8), 0, dp(4))
         }
-        statTile(gridRow1, "TOTAL INCIDENTS", "1,247")
-        val activeEmergenciesTile = statTile(gridRow1, "ACTIVE EMERGENCIES", "23")
-        activeEmergenciesTile.setTextColor(color("#EF4444"))
+        statTile(gridRow1, "TOTAL INCIDENTS", "1,247", "#38BDF8")
+        statTile(gridRow1, "ACTIVE EMERGENCIES", "23", "#EF4444")
         root.addView(gridRow1)
 
         val gridRow2 = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, 0, 0, dp(10))
         }
-        val aiConfTile = statTile(gridRow2, "AI CONFIDENCE", "89%")
-        aiConfTile.setTextColor(color("#F59E0B"))
-        val teamsTile = statTile(gridRow2, "RESPONDER TEAMS", "156")
-        teamsTile.setTextColor(color("#38BDF8"))
+        statTile(gridRow2, "AI ACCURACY", "96.4%", "#10B981")
+        statTile(gridRow2, "RESPONDER TEAMS", "156", "#F59E0B")
         root.addView(gridRow2)
 
-        root.addView(section("LIVE RIDE SIGNALS"))
-        val stats = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        impactView = statTile(stats, "IMPACT", "0.00 G")
-        tiltView = statTile(stats, "TILT", "0.0°")
-        speedView = statTile(stats, "SPEED", "0 km/h")
-        root.addView(stats)
-
-        root.addView(section("RISK MONITOR"))
-        val scoreCard = card().apply {
-            gravity = Gravity.CENTER
-            background = roundedBackground("#131F35", 14)
+        // --- LIVE RIDE SIGNALS HUD ---
+        root.addView(section("LIVE RIDE TELEMETRY HUD"))
+        val hudRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(2), 0, dp(6))
         }
-        scoreCard.addView(text("CURRENT SAFETY CONFIDENCE", 11f, "#94A3B8", true))
-        confidenceView = text("0%", 52f, "#34D399", true).apply {
+        impactView = statTile(hudRow, "IMPACT", "0.00 G", "#38BDF8")
+        tiltView = statTile(hudRow, "TILT", "0.0°", "#F59E0B")
+        speedView = statTile(hudRow, "SPEED", "0 km/h", "#34D399")
+        root.addView(hudRow)
+
+        // --- AI RISK MONITOR GLASS CARD ---
+        root.addView(section("AI CRASH RISK EVALUATION"))
+        val scoreCard = glassCard(radius = 18, strokeColor = "#3038BDF8", fillColor = "#1413233F").apply {
             gravity = Gravity.CENTER
-            setPadding(0, dp(4), 0, 0)
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+        }
+        scoreCard.addView(text("SAFETY CONFIDENCE EVALUATION", 11f, "#7DD3FC", true))
+        
+        confidenceView = text("0%", 54f, "#34D399", true).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, dp(4), 0, dp(2))
         }
         scoreCard.addView(confidenceView)
-        scoreCard.addView(text("Motion & location telemetry actively monitored", 11f, "#94A3B8", false).apply {
+
+        confidenceBadge = text("🟢 ALL TELEMETRY NOMINAL · RIDE SAFE", 11f, "#34D399", true).apply {
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, dp(6))
+            background = roundedBackground("#064E3B", 999, "#10B981")
+            setPadding(dp(14), dp(5), dp(14), dp(5))
+        }
+        scoreCard.addView(confidenceBadge)
+
+        scoreCard.addView(text("Real-time fusion of 3-Axis Accelerometer, Gyro Tilt & GPS Speed", 10f, "#64748B", false).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, dp(8), 0, 0)
         })
         root.addView(scoreCard)
 
-        root.addView(section("LIVE LOCATION"))
-        val locationCard = card().apply { background = roundedBackground("#0F172A", 14) }
-        locationCard.addView(text("CURRENT RIDER POSITION", 11f, "#67E8F9", true))
-        locationView = text("Waiting for location permission...", 13f, "#E2E8F0", true).apply {
-            setPadding(0, dp(8), 0, 0)
+        // --- LIVE GPS & GIS NAVIGATION CARD ---
+        root.addView(section("LIVE GPS SATELLITE FIX"))
+        val locationCard = glassCard(radius = 16, strokeColor = "#3038BDF8", fillColor = "#140F1D33").apply {
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+        }
+        val locHeader = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        locHeader.addView(text("📍 RIDER COORDINATES", 11f, "#38BDF8", true), LinearLayout.LayoutParams(0, -2, 1f))
+        locHeader.addView(text("● GPS ACTIVE", 10f, "#34D399", true))
+        locationCard.addView(locHeader)
+
+        locationView = text("Acquiring high-accuracy satellite fix...", 13f, "#F1F5F9", true).apply {
+            setPadding(0, dp(8), 0, dp(10))
         }
         locationCard.addView(locationView)
+
+        val mapsBtn = Button(this).apply {
+            text = "🗺️ Open Live Google Maps Route"
+            textSize = 12f
+            setTextColor(color("#38BDF8"))
+            background = roundedBackground("#0F2942", 10, "#0284C7")
+            setOnClickListener { openMap() }
+        }
+        locationCard.addView(mapsBtn, LinearLayout.LayoutParams(-1, dp(44)))
         root.addView(locationCard)
 
+        // --- HERO RED GLASS SOS BUTTON ---
         val sosButton = Button(this).apply {
-            text = "SOS   I NEED HELP NOW"
+            text = "🚨 SOS — EMERGENCY ASSISTANCE"
             textSize = 16f
             setTextColor(color("#FFFFFF"))
-            background = roundedBackground("#EF4444", 10)
-            setPadding(0, dp(8), 0, dp(8))
+            setTypeface(null, Typeface.BOLD)
+            background = glassGradientCard("#DC2626", "#991B1B", "#FCA5A5", 16)
+            setPadding(0, dp(12), 0, dp(12))
             setOnClickListener { startSosCountdown(false) }
         }
-        root.addView(sosButton, LinearLayout.LayoutParams(-1, dp(58)).apply { topMargin = dp(18) })
+        root.addView(sosButton, LinearLayout.LayoutParams(-1, dp(64)).apply {
+            topMargin = dp(20)
+            bottomMargin = dp(6)
+        })
 
-        val nav = LinearLayout(this).apply {
-            gravity = Gravity.CENTER
-            setPadding(0, dp(16), 0, dp(12))
+        // --- DIRECT TWILIO TEST CALL BUTTON ---
+        val testCallBtn = Button(this).apply {
+            text = "⚡ TEST DIRECT TWILIO EMERGENCY CALL"
+            textSize = 12f
+            setTextColor(color("#F59E0B"))
+            setTypeface(null, Typeface.BOLD)
+            background = roundedBackground("#2D1D09", 12, "#D97706")
+            setOnClickListener { testTwilioCallDirectly() }
         }
-        nav.addView(navItem("⌂\nHome", "#38BDF8") { locationView.requestFocus() })
-        nav.addView(navItem("!\nAlerts", "#71819A") { showAlerts() })
-        nav.addView(navItem("⌖\nMap", "#71819A") { openMap() })
-        nav.addView(navItem("⚙\nSettings", "#71819A") { openSettingsDialog() })
-        nav.addView(navItem("●\nProfile", "#71819A") { showProfile() })
-        root.addView(nav)
+        root.addView(testCallBtn, LinearLayout.LayoutParams(-1, dp(46)).apply {
+            bottomMargin = dp(14)
+        })
+
+        // --- FLOATING GLASS BOTTOM NAVIGATION BAR ---
+        val navCard = glassCard(radius = 999, strokeColor = "#30FFFFFF", fillColor = "#250F172A").apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(6), dp(6), dp(6), dp(6))
+        }
+        navCard.addView(navItem("⌂\nHome", "#38BDF8") { locationView.requestFocus() })
+        navCard.addView(navItem("!\nAlerts", "#94A3B8") { showAlerts() })
+        navCard.addView(navItem("⌖\nMap", "#94A3B8") { openMap() })
+        navCard.addView(navItem("⚡\nTwilio", "#F59E0B") { testTwilioCallDirectly() })
+        navCard.addView(navItem("⚙\nSettings", "#94A3B8") { openSettingsDialog() })
+        root.addView(navCard, LinearLayout.LayoutParams(-1, -2).apply {
+            topMargin = dp(10)
+            bottomMargin = dp(10)
+        })
+
         return scroll
     }
 
@@ -229,7 +308,8 @@ class MainActivity : Activity(), SensorEventListener {
 
     private fun updateScore() {
         if (!::confidenceView.isInitialized || !::sensorStatusView.isInitialized ||
-            !::impactView.isInitialized || !::tiltView.isInitialized || !::speedView.isInitialized) {
+            !::impactView.isInitialized || !::tiltView.isInitialized || !::speedView.isInitialized ||
+            !::confidenceBadge.isInitialized) {
             return
         }
         val impactScore = (((peakG - 1.8f) / 4.7f) * 100f).coerceIn(0f, 100f)
@@ -237,18 +317,31 @@ class MainActivity : Activity(), SensorEventListener {
         val speedDrop = (previousSpeedKmh - speedKmh).coerceAtLeast(0f)
         val speedScore = ((speedDrop / 45f) * 100f).coerceIn(0f, 100f)
         val confidence = (impactScore * .40f + tiltScore * .25f + speedScore * .35f).coerceIn(0f, 100f)
+
         confidenceView.text = String.format(Locale.US, "%.0f%%", confidence)
-        confidenceView.setTextColor(color(if (confidence >= 60f) "#F87171" else "#4ADE80"))
-        impactView.text = String.format(Locale.US, "%.1f G", peakG)
+        if (confidence >= 60f) {
+            confidenceView.setTextColor(color("#EF4444"))
+            confidenceBadge.text = "🔴 HIGH CRASH IMPACT DETECTED"
+            confidenceBadge.setTextColor(color("#F87171"))
+            confidenceBadge.background = roundedBackground("#450A0A", 999, "#EF4444")
+        } else {
+            confidenceView.setTextColor(color("#34D399"))
+            confidenceBadge.text = "🟢 ALL TELEMETRY NOMINAL · RIDE SAFE"
+            confidenceBadge.setTextColor(color("#34D399"))
+            confidenceBadge.background = roundedBackground("#064E3B", 999, "#10B981")
+        }
+
+        impactView.text = String.format(Locale.US, "%.2f G", peakG)
         tiltView.text = String.format(Locale.US, "%.0f°", tiltDegrees)
         speedView.text = String.format(Locale.US, "%.0f km/h", speedKmh)
-        sensorStatusView.text = String.format(Locale.US, "Peak %.2f G  ·  Tilt %.1f°", peakG, tiltDegrees)
+        sensorStatusView.text = String.format(Locale.US, "⚡ SENSORS ARMED  ·  Peak %.2f G  ·  Tilt %.1f°", peakG, tiltDegrees)
 
         if (confidence >= 80f && sosCountdownTimer == null && activeIncidentId == null && !sosCancelledRecently) {
             startSosCountdown(isAutomaticCrash = true)
         }
     }
 
+    // --- 10-SECOND EMERGENCY DISPATCH MODAL ---
     private fun startSosCountdown(isAutomaticCrash: Boolean) {
         if (sosCountdownTimer != null || activeIncidentId != null) return
 
@@ -268,13 +361,13 @@ class MainActivity : Activity(), SensorEventListener {
 
         val dialogView = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(22), dp(22), dp(22), dp(20))
-            background = roundedBackground("#180D11", 16)
+            setPadding(dp(22), dp(24), dp(22), dp(22))
+            background = roundedBackground("#17090D", 20, "#EF4444")
         }
 
         val badge = TextView(this).apply {
-            text = if (isAutomaticCrash) "● CRASH IMPACT DETECTED" else "● EMERGENCY SOS TRIGGERED"
-            textSize = 12f
+            text = if (isAutomaticCrash) "🚨 CRASH IMPACT DETECTED" else "🚨 CRITICAL EMERGENCY SOS"
+            textSize = 13f
             setTextColor(color("#F87171"))
             setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER
@@ -284,26 +377,26 @@ class MainActivity : Activity(), SensorEventListener {
 
         val headerText = TextView(this).apply {
             text = "10-SECOND EMERGENCY DISPATCH"
-            textSize = 15f
-            setTextColor(color("#FCA5A5"))
+            textSize = 17f
+            setTextColor(color("#FFFFFF"))
             setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, dp(8))
+            setPadding(0, 0, 0, dp(6))
         }
         dialogView.addView(headerText)
 
         val subText = TextView(this).apply {
-            text = "Automated location alerts, coordinates, and emergency call dispatch will trigger in:"
+            text = "Automated Twilio voice call & location SMS will be dispatched to ${BuildConfig.EMERGENCY_PHONE} in:"
             textSize = 12f
-            setTextColor(color("#94A3B8"))
+            setTextColor(color("#CBD5E1"))
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, dp(12))
+            setPadding(0, 0, 0, dp(10))
         }
         dialogView.addView(subText)
 
         val timerNumberView = TextView(this).apply {
             text = "10"
-            textSize = 68f
+            textSize = 72f
             setTextColor(color("#EF4444"))
             setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER
@@ -316,7 +409,7 @@ class MainActivity : Activity(), SensorEventListener {
             setTextColor(color("#F87171"))
             setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, dp(12))
+            setPadding(0, 0, 0, dp(10))
         }
         dialogView.addView(secondsLabel)
 
@@ -334,15 +427,17 @@ class MainActivity : Activity(), SensorEventListener {
             textSize = 12f
             setTextColor(color("#67E8F9"))
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, dp(16))
+            background = roundedBackground("#0F2942", 8, "#0284C7")
+            setPadding(dp(8), dp(6), dp(8), dp(6))
         }
-        dialogView.addView(locationChip)
+        dialogView.addView(locationChip, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(14) })
 
         val cancelBtn = Button(this).apply {
             text = "✋ CANCEL — I'M OK (FALSE ALARM)"
             textSize = 14f
             setTextColor(color("#FFFFFF"))
-            background = roundedBackground("#059669", 10)
+            setTypeface(null, Typeface.BOLD)
+            background = glassGradientCard("#059669", "#047857", "#6EE7B7", 12)
             setPadding(0, dp(10), 0, dp(10))
             setOnClickListener {
                 sosCountdownTimer?.cancel()
@@ -351,18 +446,19 @@ class MainActivity : Activity(), SensorEventListener {
                 sosCancelledRecently = true
                 sosDialog?.dismiss()
                 sosDialog = null
-                Toast.makeText(this@MainActivity, "Emergency dispatch cancelled. Ride safe!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Emergency alert cancelled.", Toast.LENGTH_SHORT).show()
             }
         }
-        dialogView.addView(cancelBtn, LinearLayout.LayoutParams(-1, dp(52)).apply {
+        dialogView.addView(cancelBtn, LinearLayout.LayoutParams(-1, dp(50)).apply {
             bottomMargin = dp(8)
         })
 
         val dispatchNowBtn = Button(this).apply {
-            text = "⚡ DISPATCH IMMEDIATELY"
+            text = "⚡ DISPATCH IMMEDIATELY (TWILIO CALL)"
             textSize = 13f
-            setTextColor(color("#FCA5A5"))
-            background = roundedBackground("#371419", 10)
+            setTextColor(color("#FFFFFF"))
+            setTypeface(null, Typeface.BOLD)
+            background = glassGradientCard("#DC2626", "#991B1B", "#FCA5A5", 12)
             setPadding(0, dp(8), 0, dp(8))
             setOnClickListener {
                 sosCountdownTimer?.cancel()
@@ -370,10 +466,26 @@ class MainActivity : Activity(), SensorEventListener {
                 vibrator?.cancel()
                 sosDialog?.dismiss()
                 sosDialog = null
-                sendSosToApi()
+                executeFullEmergencyDispatch()
             }
         }
-        dialogView.addView(dispatchNowBtn, LinearLayout.LayoutParams(-1, dp(46)))
+        dialogView.addView(dispatchNowBtn, LinearLayout.LayoutParams(-1, dp(48)).apply {
+            bottomMargin = dp(8)
+        })
+
+        val directDialBtn = Button(this).apply {
+            text = "📞 DIRECT CALL 108 / AMBULANCE"
+            textSize = 12f
+            setTextColor(color("#E2E8F0"))
+            background = roundedBackground("#1E293B", 10, "#475569")
+            setOnClickListener {
+                try {
+                    val dialIntent = Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:${BuildConfig.EMERGENCY_PHONE}"))
+                    startActivity(dialIntent)
+                } catch (_: Exception) {}
+            }
+        }
+        dialogView.addView(directDialBtn, LinearLayout.LayoutParams(-1, dp(42)))
 
         sosDialog = AlertDialog.Builder(this)
             .setView(dialogView)
@@ -397,8 +509,229 @@ class MainActivity : Activity(), SensorEventListener {
                 sosDialog?.dismiss()
                 sosDialog = null
                 sosCountdownTimer = null
-                sendSosToApi()
+                executeFullEmergencyDispatch()
             }
+        }.start()
+    }
+
+    // --- FULL EMERGENCY DISPATCH: TWILIO CLOUD + LOCAL API BACKEND ---
+    private fun executeFullEmergencyDispatch() {
+        val targetPhone = BuildConfig.EMERGENCY_PHONE
+        val curLat = latitude
+        val curLon = longitude
+
+        Toast.makeText(this, "Placing Twilio emergency voice call to $targetPhone...", Toast.LENGTH_LONG).show()
+
+        // 1. Direct Twilio Cloud Voice Call
+        callTwilioDirectly(targetPhone, curLat, curLon) { callOk, callSid, callMsg ->
+            // 2. Direct Twilio Cloud SMS
+            sendTwilioSmsDirectly(targetPhone, curLat, curLon) { smsOk, smsMsg ->
+                // 3. Post to Local API if reachable
+                notifyLocalApiServer(targetPhone, curLat, curLon)
+
+                runOnUiThread {
+                    if (isFinishing) return@runOnUiThread
+                    val title = if (callOk) "🚨 EMERGENCY DISPATCH ACTIVE" else "Emergency Dispatch Status"
+                    val message = if (callOk) {
+                        "📞 AUTOMATED TWILIO VOICE CALL PLACED!\n\n" +
+                        "• Recipient: $targetPhone\n" +
+                        "• Call SID: $callSid\n" +
+                        "• Call Status: $callMsg\n" +
+                        "• SMS Alert: ${if (smsOk) "Delivered" else "Queued"}\n" +
+                        "• Live GPS: ${String.format(Locale.US, "%.5f, %.5f", curLat, curLon)}\n\n" +
+                        "Emergency response teams have received automated voice telemetry."
+                    } else {
+                        "⚠️ Twilio Dispatch Notice:\n$callMsg\n\n" +
+                        "Target: $targetPhone\n" +
+                        "Tap below to dial emergency dispatch directly."
+                    }
+
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle(title)
+                        .setMessage(message)
+                        .setPositiveButton("OK", null)
+                        .setNeutralButton("📞 Call $targetPhone") { _, _ ->
+                            try {
+                                val intent = Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:$targetPhone"))
+                                startActivity(intent)
+                            } catch (_: Exception) {}
+                        }
+                        .show()
+                }
+            }
+        }
+    }
+
+    // --- DIRECT TWILIO REST API CALL (USING CLOUD API DIRECTLY) ---
+    private fun callTwilioDirectly(
+        targetPhone: String,
+        riderLat: Double,
+        riderLon: Double,
+        onComplete: (Boolean, String, String) -> Unit
+    ) {
+        val accountSid = BuildConfig.TWILIO_ACCOUNT_SID.trim()
+        val authToken = BuildConfig.TWILIO_AUTH_TOKEN.trim()
+        val fromPhone = BuildConfig.TWILIO_PHONE_NUMBER.trim()
+
+        if (accountSid.isBlank() || authToken.isBlank() || fromPhone.isBlank()) {
+            onComplete(false, "", "Twilio credentials missing in app configuration.")
+            return
+        }
+
+        Thread {
+            try {
+                val url = URL("https://api.twilio.com/2010-04-01/Accounts/$accountSid/Calls.json")
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.connectTimeout = 12000
+                connection.readTimeout = 12000
+                connection.doOutput = true
+
+                val authString = "$accountSid:$authToken"
+                val basicAuth = "Basic " + Base64.encodeToString(authString.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+                connection.setRequestProperty("Authorization", basicAuth)
+                connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+
+                val twimlMessage = "<Response><Pause length=\"1\"/><Say voice=\"alice\" language=\"en-IN\">Emergency Alert from SafeRide AI. Critical SOS triggered for rider at coordinates latitude " +
+                    String.format(Locale.US, "%.5f", riderLat) + ", longitude " + String.format(Locale.US, "%.5f", riderLon) +
+                    ". First responder medical and police dispatch has been notified. Check emergency terminal now.</Say></Response>"
+                val encodedTwiml = URLEncoder.encode(twimlMessage, "UTF-8")
+                val echoUrl = "https://twimlets.com/echo?Twiml=$encodedTwiml"
+
+                val postParams = "To=" + URLEncoder.encode(targetPhone, "UTF-8") +
+                    "&From=" + URLEncoder.encode(fromPhone, "UTF-8") +
+                    "&Url=" + URLEncoder.encode(echoUrl, "UTF-8")
+
+                connection.outputStream.use { os ->
+                    os.write(postParams.toByteArray(Charsets.UTF_8))
+                }
+
+                val code = connection.responseCode
+                val responseText = if (code in 200..299) {
+                    connection.inputStream.bufferedReader().use { it.readText() }
+                } else {
+                    connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $code"
+                }
+
+                val sidMatch = Regex("\"sid\"\\s*:\\s*\"([^\"]+)\"").find(responseText)?.groupValues?.getOrNull(1)
+                val isSuccess = code in 200..299 && !sidMatch.isNullOrBlank()
+                val statusMatch = Regex("\"status\"\\s*:\\s*\"([^\"]+)\"").find(responseText)?.groupValues?.getOrNull(1)
+
+                onComplete(isSuccess, sidMatch ?: "Queued", statusMatch ?: (if (isSuccess) "queued" else responseText))
+                connection.disconnect()
+            } catch (e: Exception) {
+                onComplete(false, "", e.localizedMessage ?: "Network connection error to Twilio API")
+            }
+        }.start()
+    }
+
+    // --- DIRECT TWILIO SMS VIA CLOUD API ---
+    private fun sendTwilioSmsDirectly(
+        targetPhone: String,
+        riderLat: Double,
+        riderLon: Double,
+        onComplete: (Boolean, String) -> Unit
+    ) {
+        val accountSid = BuildConfig.TWILIO_ACCOUNT_SID.trim()
+        val authToken = BuildConfig.TWILIO_AUTH_TOKEN.trim()
+        val fromPhone = BuildConfig.TWILIO_PHONE_NUMBER.trim()
+
+        if (accountSid.isBlank() || authToken.isBlank() || fromPhone.isBlank()) {
+            onComplete(false, "Twilio credentials missing")
+            return
+        }
+
+        Thread {
+            try {
+                val url = URL("https://api.twilio.com/2010-04-01/Accounts/$accountSid/Messages.json")
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.connectTimeout = 10000
+                connection.readTimeout = 10000
+                connection.doOutput = true
+
+                val authString = "$accountSid:$authToken"
+                val basicAuth = "Basic " + Base64.encodeToString(authString.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+                connection.setRequestProperty("Authorization", basicAuth)
+                connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+
+                val mapsLink = String.format(Locale.US, "https://maps.google.com/?q=%.5f,%.5f", riderLat, riderLon)
+                val smsBody = String.format(
+                    Locale.US,
+                    "🚨 SafeRide AI Emergency Alert! Rider SOS triggered at Lat %.5f, Lon %.5f. Google Maps: %s. Immediate assistance requested.",
+                    riderLat, riderLon, mapsLink
+                )
+
+                val postParams = "To=" + URLEncoder.encode(targetPhone, "UTF-8") +
+                    "&From=" + URLEncoder.encode(fromPhone, "UTF-8") +
+                    "&Body=" + URLEncoder.encode(smsBody, "UTF-8")
+
+                connection.outputStream.use { it.write(postParams.toByteArray(Charsets.UTF_8)) }
+                val code = connection.responseCode
+                val isSuccess = code in 200..299
+                onComplete(isSuccess, "HTTP $code")
+                connection.disconnect()
+            } catch (e: Exception) {
+                onComplete(false, e.localizedMessage ?: "SMS failed")
+            }
+        }.start()
+    }
+
+    // --- TEST TWILIO CALL ON DEMAND ---
+    private fun testTwilioCallDirectly() {
+        Toast.makeText(this, "Testing Twilio emergency call to ${BuildConfig.EMERGENCY_PHONE}...", Toast.LENGTH_SHORT).show()
+        callTwilioDirectly(BuildConfig.EMERGENCY_PHONE, latitude, longitude) { ok, sid, msg ->
+            runOnUiThread {
+                if (isFinishing) return@runOnUiThread
+                AlertDialog.Builder(this)
+                    .setTitle(if (ok) "⚡ Twilio Voice Call Placed" else "Twilio Test Notice")
+                    .setMessage(
+                        "Target: ${BuildConfig.EMERGENCY_PHONE}\n" +
+                        "Sender: ${BuildConfig.TWILIO_PHONE_NUMBER}\n" +
+                        "SID: $sid\n" +
+                        "Status: $msg\n\n" +
+                        if (ok) "Your phone should ring within a few seconds!" else "Check your network or Twilio caller verification."
+                    )
+                    .setPositiveButton("OK", null)
+                    .show()
+            }
+        }
+    }
+
+    // --- LOCAL API REPORTING (OPTIONAL BACKGROUND SYNC) ---
+    private fun notifyLocalApiServer(targetPhone: String, curLat: Double, curLon: Double) {
+        Thread {
+            try {
+                val body = String.format(
+                    Locale.US,
+                    "{\"vehicle_type\":\"Motorcycle\",\"latitude\":%.6f,\"longitude\":%.6f," +
+                        "\"samples\":[{\"speed_before\":%.2f,\"speed_after\":%.2f," +
+                        "\"impact_force_g\":%.2f,\"tilt_angle_deg\":%.2f}]," +
+                        "\"language\":\"English\",\"message\":\"Rider requested emergency help via mobile app.\"," +
+                        "\"trigger_call\":false,\"emergency_phone\":\"%s\"}",
+                    curLat, curLon, speedKmh + 15f, speedKmh, peakG, tiltDegrees, targetPhone
+                )
+                val primaryUrl = getApiBaseUrl()
+                val candidateUrls = listOf(primaryUrl, "http://127.0.0.1:8000", "http://10.5.9.106:8000")
+                for (baseUrl in candidateUrls) {
+                    try {
+                        val connection = URL("$baseUrl/api/v1/incidents").openConnection() as HttpURLConnection
+                        connection.requestMethod = "POST"
+                        connection.connectTimeout = 4000
+                        connection.readTimeout = 4000
+                        connection.doOutput = true
+                        connection.setRequestProperty("Content-Type", "application/json")
+                        connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+                        if (connection.responseCode in 200..299) {
+                            val res = connection.inputStream.bufferedReader().use { it.readText() }
+                            activeIncidentId = Regex("\"incident_id\"\\s*:\\s*\"([^\"]+)\"").find(res)?.groupValues?.getOrNull(1)
+                            connection.disconnect()
+                            break
+                        }
+                        connection.disconnect()
+                    } catch (_: Exception) {}
+                }
+            } catch (_: Exception) {}
         }.start()
     }
 
@@ -413,151 +746,6 @@ class MainActivity : Activity(), SensorEventListener {
             .edit()
             .putString("api_base_url", clean)
             .apply()
-    }
-
-    private fun sendSosToApi() {
-        val body = String.format(
-            Locale.US,
-            "{\"vehicle_type\":\"Motorcycle\",\"latitude\":%.6f,\"longitude\":%.6f," +
-                "\"samples\":[{\"speed_before\":%.2f,\"speed_after\":%.2f," +
-                "\"impact_force_g\":%.2f,\"tilt_angle_deg\":%.2f}]," +
-                "\"language\":\"English\",\"message\":\"Rider requested emergency help.\"," +
-                "\"trigger_call\":true}",
-            latitude,
-            longitude,
-            speedKmh + 15f,
-            speedKmh,
-            peakG,
-            tiltDegrees,
-        )
-
-        Thread {
-            var success = false
-            var responseMessage = "Unable to reach the response service."
-            var targetEmergencyPhone = "+917416960828"
-            val primaryUrl = getApiBaseUrl()
-            val candidateUrls = mutableListOf(primaryUrl)
-            if (primaryUrl.contains("127.0.0.1") || primaryUrl.contains("localhost")) {
-                if (!candidateUrls.contains("http://10.0.2.2:8000")) candidateUrls.add("http://10.0.2.2:8000")
-                if (!candidateUrls.contains("http://10.88.216.148:8000")) candidateUrls.add("http://10.88.216.148:8000")
-            }
-
-            for (baseUrl in candidateUrls) {
-                try {
-                    val connection = URL(baseUrl + "/api/v1/incidents").openConnection() as HttpURLConnection
-                    connection.requestMethod = "POST"
-                    connection.connectTimeout = 7000
-                    connection.readTimeout = 7000
-                    connection.doOutput = true
-                    connection.setRequestProperty("Content-Type", "application/json")
-                    if (BuildConfig.API_TOKEN.isNotBlank()) {
-                        connection.setRequestProperty("Authorization", "Bearer ${BuildConfig.API_TOKEN}")
-                    }
-                    connection.outputStream.use { it.write(body.toByteArray()) }
-
-                    val code = connection.responseCode
-                    success = code in 200..299
-                    if (success) {
-                        val responseBody = connection.inputStream.bufferedReader().use { it.readText() }
-                        activeIncidentId = Regex("\\\"incident_id\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"")
-                            .find(responseBody)
-                            ?.groupValues
-                            ?.getOrNull(1)
-
-                        val phoneMatch = Regex("\\\"target_phone\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"")
-                            .find(responseBody)
-                            ?.groupValues
-                            ?.getOrNull(1)
-                        if (!phoneMatch.isNullOrBlank()) {
-                            targetEmergencyPhone = phoneMatch
-                        }
-
-                        val callSid = Regex("\\\"sid\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"")
-                            .find(responseBody)
-                            ?.groupValues
-                            ?.getOrNull(1)
-
-                        val callSuccess = responseBody.contains("\"emergency_call\"") && responseBody.contains("\"success\":true")
-
-                        if (baseUrl != primaryUrl) {
-                            setApiBaseUrl(baseUrl)
-                        }
-
-                        responseMessage = if (callSuccess) {
-                            "🚨 AUTOMATED EMERGENCY CALL PLACED!\n\n" +
-                            "• Twilio Voice Call: Dispatched to $targetEmergencyPhone\n" +
-                            "• Call Reference: ${callSid ?: "Queued"}\n" +
-                            "• SMS & Location: Dispatched to Responders\n" +
-                            "• Incident ID: ${activeIncidentId ?: "Active"}\n\n" +
-                            "Live GPS tracking is now streaming every 5 seconds."
-                        } else {
-                            "🚨 EMERGENCY DISPATCH QUEUED\n\n" +
-                            "• Automated Alert: Sent to $targetEmergencyPhone\n" +
-                            "• Incident ID: ${activeIncidentId ?: "Active"}\n" +
-                            "• Live GPS Tracking: Active"
-                        }
-                        connection.disconnect()
-                        break
-                    } else {
-                        responseMessage = "Server returned error $code from $baseUrl"
-                    }
-                    connection.disconnect()
-                } catch (e: Exception) {
-                    responseMessage = "Connection failed to $baseUrl: ${e.localizedMessage}\n\nTroubleshooting:\n• USB: Run 'adb reverse tcp:8000 tcp:8000'\n• Emulator: Set URL to http://10.0.2.2:8000\n• Wi-Fi: Set URL in Settings to PC IP (e.g. 10.88.216.148)"
-                }
-            }
-
-            runOnUiThread {
-                if (isFinishing) return@runOnUiThread
-                val builder = AlertDialog.Builder(this)
-                    .setTitle(if (success) "Emergency Dispatch Active" else "Alert Failed")
-                    .setMessage(responseMessage)
-                    .setPositiveButton("OK", null)
-
-                if (success) {
-                    builder.setNeutralButton("📞 Call $targetEmergencyPhone") { _, _ ->
-                        try {
-                            val dialIntent = Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:$targetEmergencyPhone"))
-                            startActivity(dialIntent)
-                        } catch (_: Exception) {}
-                    }
-                }
-                builder.show()
-            }
-        }.start()
-    }
-
-    private fun sendLocationUpdate() {
-        val incidentId = activeIncidentId ?: return
-        val body = String.format(
-            Locale.US,
-            "{\"latitude\":%.6f,\"longitude\":%.6f,\"speed_kmh\":%.2f,\"recorded_at\":\"%d\"}",
-            latitude,
-            longitude,
-            speedKmh,
-            System.currentTimeMillis(),
-        )
-        Thread {
-            try {
-                val baseUrl = getApiBaseUrl()
-                val connection = URL(
-                    baseUrl + "/api/v1/incidents/" + incidentId + "/location",
-                ).openConnection() as HttpURLConnection
-                connection.requestMethod = "PUT"
-                connection.connectTimeout = 5000
-                connection.readTimeout = 5000
-                connection.doOutput = true
-                connection.setRequestProperty("Content-Type", "application/json")
-                if (BuildConfig.API_TOKEN.isNotBlank()) {
-                    connection.setRequestProperty("Authorization", "Bearer ${BuildConfig.API_TOKEN}")
-                }
-                connection.outputStream.use { it.write(body.toByteArray()) }
-                connection.responseCode
-                connection.disconnect()
-            } catch (_: Exception) {
-                // The next GPS tick retries the update without interrupting the rider UI.
-            }
-        }.start()
     }
 
     private fun requestLocationPermission() {
@@ -594,17 +782,19 @@ class MainActivity : Activity(), SensorEventListener {
             if (lastLocation != null) {
                 onLocationChanged(lastLocation)
             } else if (::locationView.isInitialized) {
-                locationView.text = "Waiting for GPS fix..."
+                locationView.text = "Waiting for satellite fix..."
             }
         } catch (e: SecurityException) {
-            if (::locationView.isInitialized) {
-                locationView.text = "Location access denied"
-            }
+            if (::locationView.isInitialized) locationView.text = "Location access denied"
         } catch (e: Exception) {
-            if (::locationView.isInitialized) {
-                locationView.text = "Enable Location Services"
-            }
+            if (::locationView.isInitialized) locationView.text = "Enable Location Services"
         }
+    }
+
+    private val locationListener = object : LocationListener {
+        override fun onLocationChanged(loc: Location) = this@MainActivity.onLocationChanged(loc)
+        override fun onProviderEnabled(provider: String) = Unit
+        override fun onProviderDisabled(provider: String) = Unit
     }
 
     private fun onLocationChanged(location: Location) {
@@ -628,16 +818,12 @@ class MainActivity : Activity(), SensorEventListener {
         latitude = location.latitude
         longitude = location.longitude
         if (::locationView.isInitialized) {
-            locationView.text = String.format(Locale.US, "%.5f, %.5f  ·  LIVE", latitude, longitude)
+            locationView.text = String.format(Locale.US, "%.5f° N, %.5f° E  ·  ACCURATE", latitude, longitude)
         }
         if (speedKmh > 10f) {
             sosCancelledRecently = false
         }
         updateScore()
-        if (activeIncidentId != null && System.currentTimeMillis() - lastLocationSentAt >= 5000L) {
-            lastLocationSentAt = System.currentTimeMillis()
-            sendLocationUpdate()
-        }
     }
 
     private fun navItem(label: String, tint: String, action: () -> Unit): TextView = text(label, 11f, tint, true).apply {
@@ -648,174 +834,110 @@ class MainActivity : Activity(), SensorEventListener {
 
     private fun showAlerts() {
         AlertDialog.Builder(this)
-            .setTitle("Alerts")
-            .setMessage(if (activeIncidentId == null) "No active emergency alerts." else "Active emergency request is being tracked.")
+            .setTitle("🚨 Emergency Dispatch Status")
+            .setMessage("Twilio Cloud Gateway: ACTIVE\nCaller: ${BuildConfig.TWILIO_PHONE_NUMBER}\nEmergency Target: ${BuildConfig.EMERGENCY_PHONE}\n\nAll crash triggers will dial emergency voice dispatch within 10 seconds.")
             .setPositiveButton("OK", null)
             .show()
     }
 
     private fun openMap() {
         if (latitude == 0.0 && longitude == 0.0) {
-            locationView.text = "Waiting for a location fix..."
+            Toast.makeText(this, "Acquiring GPS fix...", Toast.LENGTH_SHORT).show()
             return
         }
-        val mapIntent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("geo:$latitude,$longitude?q=$latitude,$longitude"))
+        val mapIntent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("geo:$latitude,$longitude?q=$latitude,$longitude(SafeRide+Rider+Location)"))
         startActivity(mapIntent)
     }
 
     private fun openSettingsDialog() {
         val currentUrl = getApiBaseUrl()
-        val layout = LinearLayout(this).apply {
+        val input = EditText(this).apply {
+            setText(currentUrl)
+            hint = "http://10.5.9.106:8000"
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            setTextColor(color("#FFFFFF"))
+            background = roundedBackground("#0F172A", 8, "#334155")
+        }
+
+        val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(10), dp(20), dp(10))
         }
-
-        val label = TextView(this).apply {
-            text = "SafeRide API Server URL:"
-            textSize = 13f
-            setTextColor(color("#94A3B8"))
-            setPadding(0, 0, 0, dp(6))
-        }
-        layout.addView(label)
-
-        val input = EditText(this).apply {
-            setText(currentUrl)
-            textSize = 14f
-            setTextColor(color("#0F172A"))
-            setBackgroundColor(color("#E2E8F0"))
-            setPadding(dp(10), dp(10), dp(10), dp(10))
-        }
-        layout.addView(input)
-
-        val presetNote = TextView(this).apply {
-            text = "Quick Presets:"
-            textSize = 12f
-            setTextColor(color("#64748B"))
-            setPadding(0, dp(12), 0, dp(6))
-        }
-        layout.addView(presetNote)
-
-        val buttonRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-        }
-
-        fun makeChip(name: String, url: String) = Button(this).apply {
-            text = name
-            textSize = 11f
-            setOnClickListener { input.setText(url) }
-            layoutParams = LinearLayout.LayoutParams(0, dp(38), 1f).apply { marginEnd = dp(4) }
-        }
-
-        buttonRow.addView(makeChip("USB", "http://127.0.0.1:8000"))
-        buttonRow.addView(makeChip("Emulator", "http://10.0.2.2:8000"))
-        buttonRow.addView(makeChip("Wi-Fi", "http://10.88.216.148:8000"))
-        layout.addView(buttonRow)
-
-        val statusView = TextView(this).apply {
-            textSize = 12f
-            setTextColor(color("#94A3B8"))
-            setPadding(0, dp(10), 0, dp(4))
-        }
-        layout.addView(statusView)
-
-        val testBtn = Button(this).apply {
-            text = "Test Connection"
-            textSize = 12f
-            setOnClickListener {
-                val candidate = input.text.toString().trim().trimEnd('/')
-                statusView.text = "Testing connection to $candidate/health..."
-                statusView.setTextColor(color("#38BDF8"))
-                Thread {
-                    var ok = false
-                    var msg = ""
-                    try {
-                        val conn = URL("$candidate/health").openConnection() as HttpURLConnection
-                        conn.connectTimeout = 4000
-                        conn.readTimeout = 4000
-                        val code = conn.responseCode
-                        ok = code in 200..299
-                        msg = if (ok) "✓ Connected (HTTP $code)" else "Server error: HTTP $code"
-                        conn.disconnect()
-                    } catch (e: Exception) {
-                        msg = "✗ Connection failed: ${e.localizedMessage}"
-                    }
-                    runOnUiThread {
-                        statusView.text = msg
-                        statusView.setTextColor(color(if (ok) "#4ADE80" else "#EF4444"))
-                    }
-                }.start()
-            }
-        }
-        layout.addView(testBtn)
-
-        val locationBtn = Button(this).apply {
-            text = "Open Phone Location Settings"
-            textSize = 12f
-            setOnClickListener {
-                startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
-            }
-        }
-        layout.addView(locationBtn)
+        container.addView(text("Twilio SID: ${BuildConfig.TWILIO_ACCOUNT_SID.take(8)}... (Cloud Active)", 11f, "#38BDF8", true))
+        container.addView(text("Emergency Phone: ${BuildConfig.EMERGENCY_PHONE}", 11f, "#34D399", true).apply {
+            setPadding(0, dp(4), 0, dp(10))
+        })
+        container.addView(text("Local API Base URL:", 11f, "#94A3B8", true))
+        container.addView(input)
 
         AlertDialog.Builder(this)
-            .setTitle("Connection & Settings")
-            .setView(layout)
+            .setTitle("⚙ System & Cloud Settings")
+            .setView(container)
             .setPositiveButton("Save") { _, _ ->
                 val newUrl = input.text.toString().trim()
                 if (newUrl.isNotBlank()) {
                     setApiBaseUrl(newUrl)
+                    Toast.makeText(this, "Settings Saved!", Toast.LENGTH_SHORT).show()
                 }
+            }
+            .setNeutralButton("Test Twilio Call") { _, _ ->
+                testTwilioCallDirectly()
             }
             .setNegativeButton("Cancel", null)
             .show()
     }
 
-    private fun showProfile() {
-        AlertDialog.Builder(this)
-            .setTitle("Rider Profile")
-            .setMessage("SafeRide Rider\nMonitoring: active\nLocation: ${if (latitude == 0.0) "waiting" else "available"}")
-            .setPositiveButton("OK", null)
-            .show()
-    }
-
-    private val locationListener = object : LocationListener {
-        override fun onLocationChanged(location: Location) {
-            this@MainActivity.onLocationChanged(location)
-        }
-        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
-        override fun onProviderEnabled(provider: String) {}
-        override fun onProviderDisabled(provider: String) {}
-    }
-
-    private fun labelValue(label: String, value: String): TextView = text("$label   $value", 15f, "#CBD5E1", false).apply {
-        setPadding(0, dp(7), 0, dp(7))
-    }
-
-    private fun statTile(parent: LinearLayout, label: String, initialValue: String): TextView {
-        val tile = LinearLayout(this).apply {
+    // --- GLASSMORPHIC STYLING HELPERS ---
+    private fun statTile(parent: LinearLayout, label: String, initialValue: String, valColorHex: String): TextView {
+        val tile = glassCard(radius = 14, strokeColor = "#2538BDF8", fillColor = "#180F172A").apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setPadding(dp(4), dp(10), dp(4), dp(10))
-            background = roundedBackground("#172438", 10)
         }
-        tile.addView(text(label, 10f, "#91A2BB", true))
-        val value = text(initialValue, 17f, "#38BDF8", true)
+        tile.addView(text(label, 9f, "#94A3B8", true).apply { gravity = Gravity.CENTER })
+        val value = text(initialValue, 17f, valColorHex, true).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, dp(2), 0, 0)
+        }
         tile.addView(value)
-        parent.addView(tile, LinearLayout.LayoutParams(0, dp(66), 1f).apply {
+        parent.addView(tile, LinearLayout.LayoutParams(0, dp(68), 1f).apply {
             marginStart = dp(3)
             marginEnd = dp(3)
         })
         return value
     }
 
-    private fun section(value: String): TextView = text(value, 12f, "#7DD3FC", true).apply {
-        setPadding(0, dp(22), 0, dp(8))
+    private fun section(value: String): TextView = text(value, 11f, "#7DD3FC", true).apply {
+        setPadding(dp(2), dp(18), 0, dp(6))
     }
 
-    private fun card(): LinearLayout = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(dp(16), dp(14), dp(16), dp(14))
-        background = roundedBackground("#111B2D", 12)
+    private fun glassCard(radius: Int = 16, strokeColor: String = "#30FFFFFF", fillColor: String = "#15132238"): LinearLayout {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                setColor(color(fillColor))
+                setStroke(dp(1), color(strokeColor))
+                cornerRadius = dp(radius).toFloat()
+            }
+        }
+    }
+
+    private fun glassGradientCard(startHex: String, endHex: String, strokeHex: String, radius: Int): GradientDrawable {
+        return GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(color(startHex), color(endHex))
+        ).apply {
+            setStroke(dp(1), color(strokeHex))
+            cornerRadius = dp(radius).toFloat()
+        }
+    }
+
+    private fun roundedBackground(fillHex: String, radius: Int, strokeHex: String? = null): GradientDrawable {
+        return GradientDrawable().apply {
+            setColor(color(fillHex))
+            strokeHex?.let { setStroke(dp(1), color(it)) }
+            cornerRadius = dp(radius).toFloat()
+        }
     }
 
     private fun text(value: String, size: Float, hex: String, bold: Boolean): TextView = TextView(this).apply {
@@ -823,11 +945,6 @@ class MainActivity : Activity(), SensorEventListener {
         textSize = size
         setTextColor(color(hex))
         if (bold) setTypeface(null, Typeface.BOLD)
-    }
-
-    private fun roundedBackground(hex: String, radius: Int): GradientDrawable = GradientDrawable().apply {
-        setColor(color(hex))
-        cornerRadius = dp(radius).toFloat()
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()

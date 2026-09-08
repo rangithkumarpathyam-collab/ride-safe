@@ -654,6 +654,21 @@ if st.session_state.mobile_section == "Home":
         st.session_state.mobile_timer_cancelled = False
         st.rerun()
 
+    if st.button("⚡ Test Direct Twilio Emergency Call Now", use_container_width=True):
+        with st.spinner(f"Placing direct Twilio voice call to {notify.EMERGENCY_DISPATCH_PHONE}..."):
+            c_res = notify.trigger_emergency_call(
+                {"incident_id": "TEST-VOICE", "vehicle_type": "Motorcycle", "confidence": 98.0, "city": "Bengaluru Central"},
+                to_phone=notify.EMERGENCY_DISPATCH_PHONE
+            )
+            s_res = notify.send_emergency_sms(
+                {"incident_id": "TEST-VOICE", "vehicle_type": "Motorcycle", "confidence": 98.0, "latitude": 17.5192, "longitude": 78.6299},
+                to_phone=notify.EMERGENCY_DISPATCH_PHONE
+            )
+            if c_res.get("success"):
+                st.success(f"📞 Twilio Voice Call Placed! SID: {c_res.get('sid')} (Status: {c_res.get('status')})")
+            else:
+                st.error(f"Twilio notice: {c_res.get('error')}")
+
 # -----------------------------------------------------------------------------
 # TAB 2: ! ALERTS / ACTIVE INCIDENT DETAIL VIEW
 # -----------------------------------------------------------------------------

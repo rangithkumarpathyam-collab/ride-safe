@@ -5,6 +5,28 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+import java.util.Properties
+
+val envProperties = Properties().apply {
+    val envFile = rootProject.file("../.env")
+    if (envFile.exists()) {
+        envFile.forEachLine { line ->
+            val trimmed = line.trim()
+            if (trimmed.isNotEmpty() && !trimmed.startsWith("#") && trimmed.contains("=")) {
+                val idx = trimmed.indexOf('=')
+                val key = trimmed.substring(0, idx).trim()
+                val value = trimmed.substring(idx + 1).trim()
+                setProperty(key, value)
+            }
+        }
+    }
+}
+
+val twilioSid = envProperties.getProperty("TWILIO_ACCOUNT_SID") ?: ""
+val twilioToken = envProperties.getProperty("TWILIO_AUTH_TOKEN") ?: ""
+val twilioFrom = envProperties.getProperty("TWILIO_PHONE_NUMBER") ?: ""
+val emergencyPhone = envProperties.getProperty("EMERGENCY_DISPATCH_PHONE") ?: "+917416960828"
+
 android {
     namespace = "com.saferide.rider"
     compileSdk = 35
@@ -16,9 +38,12 @@ android {
         versionCode = 1
         versionName = "1.0"
         // Local network / Wi-Fi IP of the host machine running the FastAPI backend
-        buildConfigField("String", "API_BASE_URL", "\"http://10.88.216.167:8000\"")
+        buildConfigField("String", "API_BASE_URL", "\"http://10.5.9.106:8000\"")
         buildConfigField("String", "API_TOKEN", "\"\"")
-        buildConfigField("String", "EMERGENCY_PHONE", "\"+917416960828\"")
+        buildConfigField("String", "EMERGENCY_PHONE", "\"$emergencyPhone\"")
+        buildConfigField("String", "TWILIO_ACCOUNT_SID", "\"$twilioSid\"")
+        buildConfigField("String", "TWILIO_AUTH_TOKEN", "\"$twilioToken\"")
+        buildConfigField("String", "TWILIO_PHONE_NUMBER", "\"$twilioFrom\"")
     }
 
     buildFeatures {
