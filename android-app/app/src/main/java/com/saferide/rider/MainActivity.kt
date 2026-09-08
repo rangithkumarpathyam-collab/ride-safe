@@ -65,6 +65,7 @@ class MainActivity : Activity(), SensorEventListener {
     private var sosCountdownTimer: CountDownTimer? = null
     private var sosDialog: AlertDialog? = null
     private var sosCancelledRecently = false
+    private var isSimulatingAbnormal = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,6 +76,21 @@ class MainActivity : Activity(), SensorEventListener {
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         setContentView(buildScreen())
         requestLocationPermission()
+        handleIntentActions(intent)
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        handleIntentActions(intent)
+    }
+
+    private fun handleIntentActions(intent: Intent?) {
+        val action = intent?.getStringExtra("action")
+        if (action == "trigger_abnormal") {
+            window.decorView.postDelayed({ simulateAbnormalCrash() }, 200)
+        } else if (action == "reset_nominal") {
+            window.decorView.postDelayed({ resetTelemetryToNominal() }, 200)
+        }
     }
 
     private fun buildScreen(): View {
@@ -191,8 +207,51 @@ class MainActivity : Activity(), SensorEventListener {
 
         scoreCard.addView(text("Real-time fusion of 3-Axis Accelerometer, Gyro Tilt & GPS Speed", 10f, "#64748B", false).apply {
             gravity = Gravity.CENTER
-            setPadding(0, dp(8), 0, 0)
+            setPadding(0, dp(8), 0, dp(8))
         })
+
+        // Embedded simulation trigger controls
+        val simRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(6), 0, 0)
+        }
+        val testAbnormalBtn = Button(this).apply {
+            text = "⚡ TRIGGER ABNORMAL SCORE (AUTO SOS)"
+            textSize = 10f
+            setTextColor(color("#FFFFFF"))
+            setTypeface(null, Typeface.BOLD)
+            background = glassGradientCard("#EA580C", "#9A3412", "#FDBA74", 10)
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                android.util.Log.i("SafeRide", "BUTTON: TRIGGER ABNORMAL SCORE clicked")
+                simulateAbnormalCrash()
+            }
+        }
+        simRow.addView(testAbnormalBtn, LinearLayout.LayoutParams(0, dp(44), 1.7f).apply {
+            rightMargin = dp(6)
+        })
+
+        val resetTelemetryBtn = Button(this).apply {
+            text = "🔄 RESET"
+            textSize = 10f
+            setTextColor(color("#34D399"))
+            setTypeface(null, Typeface.BOLD)
+            background = roundedBackground("#064E3B", 10, "#10B981")
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                android.util.Log.i("SafeRide", "BUTTON: RESET clicked")
+                resetTelemetryToNominal()
+            }
+        }
+        simRow.addView(resetTelemetryBtn, LinearLayout.LayoutParams(0, dp(44), 0.8f))
+        scoreCard.addView(simRow, LinearLayout.LayoutParams(-1, -2).apply {
+            topMargin = dp(6)
+        })
+
         root.addView(scoreCard)
 
         // --- LIVE GPS & GIS NAVIGATION CARD ---
@@ -247,7 +306,7 @@ class MainActivity : Activity(), SensorEventListener {
             background = roundedBackground("#2D1D09", 12, "#D97706")
             setOnClickListener { testTwilioCallDirectly() }
         }
-        root.addView(testCallBtn, LinearLayout.LayoutParams(-1, dp(46)).apply {
+        root.addView(testCallBtn, LinearLayout.LayoutParams(-1, dp(44)).apply {
             bottomMargin = dp(14)
         })
 
@@ -268,6 +327,30 @@ class MainActivity : Activity(), SensorEventListener {
         })
 
         return scroll
+    }
+
+    private fun simulateAbnormalCrash() {
+        sosCancelledRecently = false
+        activeIncidentId = null
+        isSimulatingAbnormal = true
+        peakG = 3.8f
+        tiltDegrees = 65f
+        previousSpeedKmh = 60f
+        speedKmh = 0f
+        Toast.makeText(this, "Simulating abnormal crash telemetry...", Toast.LENGTH_SHORT).show()
+        updateScore()
+    }
+
+    private fun resetTelemetryToNominal() {
+        isSimulatingAbnormal = false
+        sosCancelledRecently = false
+        activeIncidentId = null
+        peakG = 1.0f
+        tiltDegrees = 0f
+        speedKmh = 0f
+        previousSpeedKmh = 0f
+        Toast.makeText(this, "Telemetry reset to nominal.", Toast.LENGTH_SHORT).show()
+        updateScore()
     }
 
     override fun onResume() {
@@ -295,11 +378,13 @@ class MainActivity : Activity(), SensorEventListener {
     override fun onSensorChanged(event: SensorEvent) {
         if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
             val g = sqrt(event.values[0] * event.values[0] + event.values[1] * event.values[1] + event.values[2] * event.values[2]) / SensorManager.GRAVITY_EARTH
-            peakG = max(peakG * 0.995f, g)
-            tiltDegrees = Math.toDegrees(atan2(
-                sqrt(event.values[0] * event.values[0] + event.values[1] * event.values[1]).toDouble(),
-                event.values[2].toDouble(),
-            )).toFloat()
+            if (!isSimulatingAbnormal) {
+                peakG = max(peakG * 0.995f, g)
+                tiltDegrees = Math.toDegrees(atan2(
+                    sqrt(event.values[0] * event.values[0] + event.values[1] * event.values[1]).toDouble(),
+                    event.values[2].toDouble(),
+                )).toFloat()
+            }
             updateScore()
         }
     }
@@ -312,16 +397,22 @@ class MainActivity : Activity(), SensorEventListener {
             !::confidenceBadge.isInitialized) {
             return
         }
-        val impactScore = (((peakG - 1.8f) / 4.7f) * 100f).coerceIn(0f, 100f)
-        val tiltScore = (((tiltDegrees - 30f) / 45f) * 100f).coerceIn(0f, 100f)
+        val impactScore = (((peakG - 1.4f) / 2.0f) * 100f).coerceIn(0f, 100f)
+        val tiltScore = (((tiltDegrees - 25f) / 35f) * 100f).coerceIn(0f, 100f)
         val speedDrop = (previousSpeedKmh - speedKmh).coerceAtLeast(0f)
-        val speedScore = ((speedDrop / 45f) * 100f).coerceIn(0f, 100f)
-        val confidence = (impactScore * .40f + tiltScore * .25f + speedScore * .35f).coerceIn(0f, 100f)
+        val speedScore = ((speedDrop / 35f) * 100f).coerceIn(0f, 100f)
+        val baseScore = (impactScore * .45f + tiltScore * .25f + speedScore * .30f)
+        val confidence = max(
+            baseScore,
+            if (peakG >= 2.6f) 82f else if (peakG >= 2.2f && tiltDegrees >= 45f) 75f else 0f
+        ).coerceIn(0f, 100f)
+
+        val isNotNormal = confidence >= 50f
 
         confidenceView.text = String.format(Locale.US, "%.0f%%", confidence)
-        if (confidence >= 60f) {
+        if (isNotNormal) {
             confidenceView.setTextColor(color("#EF4444"))
-            confidenceBadge.text = "🔴 HIGH CRASH IMPACT DETECTED"
+            confidenceBadge.text = String.format(Locale.US, "🔴 ABNORMAL SAFETY EVALUATION (%.0f%%)", confidence)
             confidenceBadge.setTextColor(color("#F87171"))
             confidenceBadge.background = roundedBackground("#450A0A", 999, "#EF4444")
         } else {
@@ -329,6 +420,9 @@ class MainActivity : Activity(), SensorEventListener {
             confidenceBadge.text = "🟢 ALL TELEMETRY NOMINAL · RIDE SAFE"
             confidenceBadge.setTextColor(color("#34D399"))
             confidenceBadge.background = roundedBackground("#064E3B", 999, "#10B981")
+            if (confidence < 25f && peakG < 1.6f && tiltDegrees < 30f) {
+                sosCancelledRecently = false
+            }
         }
 
         impactView.text = String.format(Locale.US, "%.2f G", peakG)
@@ -336,13 +430,18 @@ class MainActivity : Activity(), SensorEventListener {
         speedView.text = String.format(Locale.US, "%.0f km/h", speedKmh)
         sensorStatusView.text = String.format(Locale.US, "⚡ SENSORS ARMED  ·  Peak %.2f G  ·  Tilt %.1f°", peakG, tiltDegrees)
 
-        if (confidence >= 80f && sosCountdownTimer == null && activeIncidentId == null && !sosCancelledRecently) {
-            startSosCountdown(isAutomaticCrash = true)
+        // AUTOMATIC EMERGENCY SOS ACTIVATION ON ABNORMAL SAFETY CONFIDENCE SCORE
+        if (isNotNormal) {
+            android.util.Log.i("SafeRide", "Abnormal telemetry! confidence=$confidence%, timer=$sosCountdownTimer, activeInc=$activeIncidentId, cancelled=$sosCancelledRecently")
+            if (sosCountdownTimer == null && activeIncidentId == null && !sosCancelledRecently) {
+                android.util.Log.i("SafeRide", ">>> Auto-activating startSosCountdown(isAutomaticCrash = true, triggerScore = $confidence)")
+                startSosCountdown(isAutomaticCrash = true, triggerScore = confidence)
+            }
         }
     }
 
     // --- 10-SECOND EMERGENCY DISPATCH MODAL ---
-    private fun startSosCountdown(isAutomaticCrash: Boolean) {
+    private fun startSosCountdown(isAutomaticCrash: Boolean, triggerScore: Float = 0f) {
         if (sosCountdownTimer != null || activeIncidentId != null) return
 
         val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
@@ -366,7 +465,12 @@ class MainActivity : Activity(), SensorEventListener {
         }
 
         val badge = TextView(this).apply {
-            text = if (isAutomaticCrash) "🚨 CRASH IMPACT DETECTED" else "🚨 CRITICAL EMERGENCY SOS"
+            text = if (isAutomaticCrash) {
+                if (triggerScore > 0f) String.format(Locale.US, "🚨 ABNORMAL SCORE DETECTED (%.0f%%)", triggerScore)
+                else "🚨 ABNORMAL SAFETY TELEMETRY DETECTED"
+            } else {
+                "🚨 CRITICAL EMERGENCY SOS"
+            }
             textSize = 13f
             setTextColor(color("#F87171"))
             setTypeface(null, Typeface.BOLD)
@@ -376,7 +480,7 @@ class MainActivity : Activity(), SensorEventListener {
         dialogView.addView(badge)
 
         val headerText = TextView(this).apply {
-            text = "10-SECOND EMERGENCY DISPATCH"
+            text = if (isAutomaticCrash) "AUTOMATIC EMERGENCY SOS ACTIVATED" else "10-SECOND EMERGENCY DISPATCH"
             textSize = 17f
             setTextColor(color("#FFFFFF"))
             setTypeface(null, Typeface.BOLD)
@@ -386,7 +490,11 @@ class MainActivity : Activity(), SensorEventListener {
         dialogView.addView(headerText)
 
         val subText = TextView(this).apply {
-            text = "Automated Twilio voice call & location SMS will be dispatched to ${BuildConfig.EMERGENCY_PHONE} in:"
+            text = if (isAutomaticCrash) {
+                "Safety confidence score is NOT NORMAL! Automated Twilio voice call & location SMS will be dispatched to ${BuildConfig.EMERGENCY_PHONE} in:"
+            } else {
+                "Automated Twilio voice call & location SMS will be dispatched to ${BuildConfig.EMERGENCY_PHONE} in:"
+            }
             textSize = 12f
             setTextColor(color("#CBD5E1"))
             gravity = Gravity.CENTER
@@ -444,6 +552,8 @@ class MainActivity : Activity(), SensorEventListener {
                 sosCountdownTimer = null
                 vibrator?.cancel()
                 sosCancelledRecently = true
+                isSimulatingAbnormal = false
+                activeIncidentId = null
                 sosDialog?.dismiss()
                 sosDialog = null
                 Toast.makeText(this@MainActivity, "Emergency alert cancelled.", Toast.LENGTH_SHORT).show()

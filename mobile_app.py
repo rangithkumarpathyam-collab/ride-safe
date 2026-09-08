@@ -410,18 +410,25 @@ if st.session_state.mobile_timer_active:
     elapsed = int(time.time() - st.session_state.mobile_timer_start)
     seconds_left = max(0, 10 - elapsed)
 
+    trigger_score = st.session_state.get("auto_triggered_by_score")
+    alert_badge = (
+        f"● ABNORMAL SAFETY EVALUATION SCORE DETECTED ({trigger_score}%)"
+        if trigger_score
+        else "● CRASH SENSORS TRIGGERED"
+    )
+
     st.markdown(
         f"""
         <div class="sos-timer-card">
             <div style="font-size:0.75rem; font-weight:800; color:#fca5a5; letter-spacing:0.12em; text-transform:uppercase;">
-                ● CRASH SENSORS TRIGGERED
+                {alert_badge}
             </div>
             <div style="font-size:1.15rem; font-weight:900; color:#ffffff; margin-top:2px;">
-                10-SECOND AUTO-DISPATCH ACTIVE
+                AUTOMATIC EMERGENCY SOS ACTIVATED
             </div>
             <div class="sos-number">{seconds_left}s</div>
             <div style="font-size:0.75rem; color:#fca5a5; margin-bottom:0.75rem;">
-                Automated phone call & emergency location dispatch to <b>{notify.EMERGENCY_DISPATCH_PHONE}</b> in:
+                Safety confidence evaluation score was <b>NOT NORMAL</b>. Automated Twilio voice call & location dispatch to <b>{notify.EMERGENCY_DISPATCH_PHONE}</b> in:
             </div>
             <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:6px; font-size:0.75rem; color:#67e8f9; font-weight:700;">
                 📍 Active GPS: 17.4435, 78.3772 · MG Road Corridor
@@ -437,6 +444,7 @@ if st.session_state.mobile_timer_active:
             st.session_state.mobile_timer_active = False
             st.session_state.mobile_timer_start = None
             st.session_state.mobile_timer_cancelled = True
+            st.session_state.score_dismissed = True
             st.rerun()
     with col_now:
         if st.button("⚡ DISPATCH NOW", key="force_sos_timer", type="primary", use_container_width=True):
@@ -947,10 +955,24 @@ elif st.session_state.mobile_section == "Sim":
         unsafe_allow_html=True,
     )
 
-    if st.button("🚨 Simulate Crash & Auto-Dispatch", type="primary", use_container_width=True):
+    auto_trigger = st.toggle("⚡ Auto-activate Emergency SOS when score is abnormal", value=True)
+    if auto_trigger and score >= 60:
+        if not st.session_state.get("mobile_timer_active", False) and not st.session_state.get("score_dismissed", False):
+            st.session_state.mobile_timer_active = True
+            st.session_state.mobile_timer_start = time.time()
+            st.session_state.mobile_timer_cancelled = False
+            st.session_state.auto_triggered_by_score = score
+            st.rerun()
+    elif score < 60:
+        st.session_state.score_dismissed = False
+        st.session_state.auto_triggered_by_score = None
+
+    if st.button("🚨 Trigger Emergency SOS (10s Countdown)", type="primary", use_container_width=True):
         st.session_state.mobile_timer_active = True
         st.session_state.mobile_timer_start = time.time()
         st.session_state.mobile_timer_cancelled = False
+        st.session_state.auto_triggered_by_score = score
+        st.session_state.score_dismissed = False
         st.rerun()
 
 # -----------------------------------------------------------------------------
