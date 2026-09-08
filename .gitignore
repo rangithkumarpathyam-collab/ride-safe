@@ -20,6 +20,9 @@ env/
 .vscode/
 .idea/
 
+# Logs
+*.log
+
 # Android/Gradle local files
 .gradle/
 local.properties
