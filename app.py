@@ -39,10 +39,19 @@ st.set_page_config(
 # Custom Styling for Emergency Command Center
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800;900&display=swap');
     
+    :root {
+        --ink: #f8fafc;
+        --muted: #94a3b8;
+        --panel: #111b2d;
+        --line: rgba(148, 163, 184, 0.18);
+        --accent-red: #ef4444;
+        --accent-cyan: #38bdf8;
+    }
+
     html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
+        font-family: 'DM Sans', 'Inter', sans-serif;
     }
     
     /* Top Brand Header */
@@ -103,36 +112,86 @@ st.markdown("""
         100% { transform: scale(0.95); opacity: 0.85; }
     }
     
-    /* 10-Second SOS Emergency Countdown Banner */
+    /* High-Contrast 10-Second SOS Emergency Countdown Banner */
     .sos-banner {
-        background: linear-gradient(135deg, rgba(239, 68, 68, 0.18) 0%, rgba(185, 28, 28, 0.28) 100%);
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(127, 29, 29, 0.38) 100%);
         border: 2px solid #ef4444;
-        border-radius: 14px;
-        padding: 1.2rem 1.6rem;
-        margin-bottom: 1.4rem;
-        box-shadow: 0 0 25px rgba(239, 68, 68, 0.35);
+        border-radius: 16px;
+        padding: 1.3rem 1.6rem;
+        margin-bottom: 1.2rem;
+        box-shadow: 0 0 35px rgba(239, 68, 68, 0.4);
         animation: sos-pulse 1.8s infinite;
     }
     @keyframes sos-pulse {
-        0% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.25); border-color: #ef4444; }
-        50% { box-shadow: 0 0 35px rgba(239, 68, 68, 0.6); border-color: #f87171; }
-        100% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.25); border-color: #ef4444; }
+        0% { box-shadow: 0 0 16px rgba(239, 68, 68, 0.25); border-color: #ef4444; }
+        50% { box-shadow: 0 0 38px rgba(239, 68, 68, 0.65); border-color: #f87171; }
+        100% { box-shadow: 0 0 16px rgba(239, 68, 68, 0.25); border-color: #ef4444; }
     }
     .sos-title {
-        font-size: 1.35rem;
+        font-size: 1.25rem;
         font-weight: 800;
-        color: #fecaca;
+        color: #fee2e2;
+        letter-spacing: -0.02em;
         display: flex;
         align-items: center;
         gap: 8px;
+    }
+    .target-badge {
+        font-size: 0.78rem;
+        font-weight: 800;
+        color: #fca5a5;
+        background: rgba(0, 0, 0, 0.45);
+        border: 1px solid rgba(239, 68, 68, 0.5);
+        padding: 5px 12px;
+        border-radius: 8px;
+    }
+    
+    /* Live Countdown Display Card */
+    .countdown-card {
+        background: rgba(17, 27, 45, 0.9);
+        border: 1.5px solid rgba(239, 68, 68, 0.7);
+        border-radius: 14px;
+        padding: 1.2rem;
+        text-align: center;
+        margin: 10px 0 6px 0;
+        box-shadow: inset 0 0 20px rgba(239, 68, 68, 0.15);
+    }
+    .countdown-label {
+        font-size: 0.78rem;
+        font-weight: 800;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+    }
+    .countdown-number {
+        font-size: 3.6rem;
+        font-weight: 900;
+        line-height: 1.1;
+        color: #f87171;
+        text-shadow: 0 0 25px rgba(239, 68, 68, 0.8);
+        font-family: 'DM Sans', monospace;
+    }
+    .countdown-sub {
+        font-size: 0.82rem;
+        color: #cbd5e1;
+        margin-top: 4px;
     }
     .sos-timer-number {
         font-size: 3.2rem;
         font-weight: 900;
         color: #ef4444;
         text-shadow: 0 0 20px rgba(239, 68, 68, 0.7);
-        font-family: 'Inter', monospace;
+        font-family: 'DM Sans', monospace;
         letter-spacing: -1px;
+    }
+    .high-confidence-alert {
+        background: rgba(239, 68, 68, 0.14);
+        border: 1px solid #ef4444;
+        border-radius: 10px;
+        padding: 0.75rem;
+        margin: 8px 0;
+        font-size: 0.82rem;
+        color: #fecaca;
     }
     
     /* API Status Badges Bar */
@@ -577,6 +636,8 @@ if "sos_timer_active" not in st.session_state:
     st.session_state["sos_timer_active"] = False
 if "sos_incident_id" not in st.session_state:
     st.session_state["sos_incident_id"] = None
+if "sos_start_time" not in st.session_state:
+    st.session_state["sos_start_time"] = None
 if "sos_call_result" not in st.session_state:
     st.session_state["sos_call_result"] = None
 if "sos_cancelled" not in st.session_state:
@@ -620,7 +681,7 @@ with st.sidebar:
     # Filter Status
     status_filter = st.selectbox(
         "Filter Incidents By Status",
-        options=["All", "REPORTED", "DISPATCHED", "RESOLVED"],
+        options=["All", "REPORTED", "NO RESPONSE", "DISPATCHED", "RESOLVED"],
         index=0
     )
     
@@ -684,9 +745,17 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
 
+    if sim_result["confidence"] >= 60.0:
+        st.markdown("""
+            <div class="high-confidence-alert">
+                🚨 <b>CRITICAL IMPACT THRESHOLD EXCEEDED (≥60%)</b><br>
+                Automatic 10s emergency dispatch countdown armed upon trigger.
+            </div>
+        """, unsafe_allow_html=True)
+
     auto_timer_checkbox = st.checkbox("⏱️ Auto-engage 10s Emergency Location Message & Call on Crash", value=True)
 
-    if st.button("🚨 Trigger New Incident to Database", use_container_width=True):
+    if st.button("🚨 Trigger New Incident to Database", use_container_width=True, type="primary"):
         # Hyderabad coordinate jitter for realistic simulation
         import random
         sim_lat = round(17.4400 + random.uniform(-0.04, 0.04), 5)
@@ -696,8 +765,8 @@ with st.sidebar:
         sim_geo = geo.reverse_geocode(sim_lat, sim_lng)
         sim_address = sim_geo.get("formatted_address", f"Cyberabad Area ({sim_lat}, {sim_lng})")
 
-        sim_status = "NEED HELP" if sim_result["accident_detected"] else "I'M OK"
-        sim_message = "బైక్ పడిపోయింది, దయచేసి అంబులెన్స్ పంపండి." if sim_result["accident_detected"] else "రైడ్ క్షేమంగా ఉంది."
+        sim_status = "NEED HELP" if (sim_result["accident_detected"] or sim_result["confidence"] >= 60.0) else "I'M OK"
+        sim_message = "బైక్ పడిపోయింది, దయచేసి అంబులెన్స్ పంపండి." if (sim_result["accident_detected"] or sim_result["confidence"] >= 60.0) else "రైడ్ క్షేమంగా ఉంది."
 
         new_inc_id = db.create_incident(
             vehicle_type=sim_vehicle,
@@ -707,14 +776,15 @@ with st.sidebar:
             rider_status=sim_status,
             language="Telugu",
             message=sim_message,
-            status="REPORTED" if sim_result["accident_detected"] else "RESOLVED",
+            status="REPORTED" if (sim_result["accident_detected"] or sim_result["confidence"] >= 60.0) else "RESOLVED",
             address=sim_address
         )
 
-        # If crash detected and auto-timer checked, engage the 10-second timer immediately!
-        if sim_result["accident_detected"] and auto_timer_checkbox:
+        # If crash detected or confidence >= 60% and auto-timer checked, engage the 10-second timer immediately!
+        if (sim_result["confidence"] >= 60.0 or sim_result["accident_detected"]) and auto_timer_checkbox:
             st.session_state["sos_timer_active"] = True
             st.session_state["sos_incident_id"] = new_inc_id
+            st.session_state["sos_start_time"] = time.time()
             st.session_state["sos_cancelled"] = False
             st.session_state["sos_call_result"] = None
             st.session_state["wa_location_result"] = None
@@ -791,18 +861,20 @@ if st.session_state.get("sos_timer_active"):
     # Prominent Emergency SOS Header Box
     st.markdown(f"""
     <div class="sos-banner">
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
             <div class="sos-title">
                 <span class="live-pulse"></span> 🚨 CRASH DETECTED: 10-SECOND AUTOMATED LOCATION & VOICE DISPATCH
             </div>
-            <div style="font-size:0.85rem; color:#fca5a5; font-weight:700; background:rgba(0,0,0,0.3); padding:4px 10px; border-radius:6px;">
-                TARGET NUMBER: {dest_phone}
+            <div class="target-badge">
+                TARGET: {dest_phone}
             </div>
         </div>
-        <div style="font-size:0.92rem; color:#fecaca; margin-top:8px;">
-            Accident Record: <b>{sos_inc['incident_id']}</b> ({sos_inc['vehicle_type']} • Confidence: <b>{sos_inc['confidence']}%</b>)
+        <div style="font-size:0.92rem; color:#fecaca; margin-top:10px; line-height:1.5;">
+            Accident Record: <b>{sos_inc['incident_id']}</b> ({sos_inc['vehicle_type']} • Confidence: <b style="color:#ef4444;">{sos_inc['confidence']}%</b>)
             <br>📍 Location: <b>{sos_addr}</b> (GPS: <code>{sos_inc['latitude']}, {sos_inc['longitude']}</code>)
-            <br><span style="color:#ffffff; font-weight:600;">In 10 seconds, SafeRide AI will automatically send the exact GPS crash location and initiate an emergency voice call to {dest_phone}.</span>
+            <br><span style="color:#ffffff; font-weight:600;">
+                In 10 seconds, SafeRide AI will mark this incident as <b>NO RESPONSE</b> and automatically dispatch GPS coordinates and an emergency voice call to {dest_phone}.
+            </span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -812,6 +884,7 @@ if st.session_state.get("sos_timer_active"):
     with col_ctrl1:
         if st.button("✋ I'M OK / CANCEL DISPATCH (False Alarm)", key="btn_cancel_sos_active", type="secondary", use_container_width=True):
             st.session_state["sos_timer_active"] = False
+            st.session_state["sos_start_time"] = None
             st.session_state["sos_cancelled"] = True
             st.session_state["sos_call_result"] = None
             st.session_state["wa_location_result"] = None
@@ -831,7 +904,7 @@ if st.session_state.get("sos_timer_active"):
                 sms_res = notify.send_emergency_sms(sos_inc, to_phone=dest_phone)
                 wa_loc_res = notify.send_whatsapp_location(sos_inc, to_phone=dest_phone, address=sos_addr)
                 
-                db.update_incident(sos_inc["incident_id"], status="DISPATCHED")
+                db.update_incident(sos_inc["incident_id"], status="DISPATCHED", rider_status="NEED HELP")
                 maps_link = wa_loc_res.get('maps_link', f"https://maps.google.com/?q={sos_inc['latitude']},{sos_inc['longitude']}")
                 
                 db.add_incident_message(
@@ -841,66 +914,76 @@ if st.session_state.get("sos_timer_active"):
                     f"GPS: ({sos_inc['latitude']}, {sos_inc['longitude']}) | Map: {maps_link}"
                 )
                 st.session_state["sos_timer_active"] = False
+                st.session_state["sos_start_time"] = None
                 st.session_state["sos_call_result"] = call_res
                 st.session_state["wa_location_result"] = wa_loc_res
                 st.rerun()
 
     # Active Live Countdown Ticker
-    timer_display = st.empty()
-    bar_display = st.progress(1.0)
+    if not st.session_state.get("sos_start_time"):
+        st.session_state["sos_start_time"] = time.time()
 
-    for sec_left in range(10, 0, -1):
-        timer_display.markdown(f"""
-            <div style="background:#1e1b2e; border:2px solid #ef4444; border-radius:12px; padding:1.2rem; text-align:center; margin: 10px 0;">
-                <div style="font-size:0.85rem; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:1px;">
-                    Automated Emergency Location & Call In:
-                </div>
-                <div class="sos-timer-number">{sec_left}s</div>
-                <div style="font-size:0.85rem; color:#f87171;">
+    elapsed = time.time() - st.session_state["sos_start_time"]
+    sec_left = max(0, int(10 - elapsed))
+    progress_pct = max(0.0, min(1.0, sec_left / 10.0))
+
+    if sec_left > 0:
+        st.markdown(f"""
+            <div class="countdown-card">
+                <div class="countdown-label">Automated Emergency Location & Voice Dispatch In:</div>
+                <div class="countdown-number">{sec_left}s</div>
+                <div class="countdown-sub">
                     Dispatching GPS location message & voice call to <b>{dest_phone}</b>... Click Cancel if rider is safe.
                 </div>
             </div>
         """, unsafe_allow_html=True)
-        bar_display.progress(sec_left / 10.0)
-        time.sleep(1)
-
-    # 10 Seconds Completed -> Fire Automated Emergency Location & Call
-    timer_display.markdown(f"""
-        <div style="background:#1e1b2e; border:2px solid #10b981; border-radius:12px; padding:1.2rem; text-align:center; margin: 10px 0;">
-            <div style="font-size:1.6rem; font-weight:800; color:#34d399;">🚨 10 SECONDS EXPIRED — SENDING LOCATION & EMERGENCY CALL!</div>
-            <div style="font-size:0.9rem; color:#cbd5e1; margin-top:4px;">
-                Dispatching GPS coordinates, Google Maps route, and automated voice call to {dest_phone}...
+        st.progress(progress_pct)
+        time.sleep(1.0)
+        st.rerun()
+    else:
+        # 10 Seconds Completed -> Fire Automated Emergency Location & Call
+        st.markdown(f"""
+            <div class="countdown-card" style="border-color:#10b981; box-shadow:0 0 25px rgba(16,185,129,0.3);">
+                <div style="font-size:1.45rem; font-weight:800; color:#34d399;">🚨 10 SECONDS EXPIRED — NO RESPONSE DETECTED!</div>
+                <div class="countdown-sub">
+                    Status updated to <b>NO RESPONSE</b>. Automated voice call and GPS dispatch initiated to <b>{dest_phone}</b>...
+                </div>
             </div>
-        </div>
-    """, unsafe_allow_html=True)
-    bar_display.progress(0.0)
+        """, unsafe_allow_html=True)
+        st.progress(0.0)
 
-    # Execute automated location message, voice call, and SMS
-    call_res = notify.trigger_emergency_call(sos_inc, to_phone=dest_phone)
-    sms_res = notify.send_emergency_sms(sos_inc, to_phone=dest_phone)
-    wa_loc_res = notify.send_whatsapp_location(sos_inc, to_phone=dest_phone, address=sos_addr)
-    
-    db.update_incident(sos_inc["incident_id"], status="DISPATCHED")
-    maps_link = wa_loc_res.get('maps_link', f"https://maps.google.com/?q={sos_inc['latitude']},{sos_inc['longitude']}")
-    
-    db.add_incident_message(
-        sos_inc["incident_id"],
-        "System",
-        f"🚨 10-Second Auto-Timer Expired: Emergency Location Message & Voice Call placed to {dest_phone}. "
-        f"GPS: ({sos_inc['latitude']}, {sos_inc['longitude']}) | Map: {maps_link}"
-    )
-    st.session_state["sos_timer_active"] = False
-    st.session_state["sos_call_result"] = call_res
-    st.session_state["wa_location_result"] = wa_loc_res
-    time.sleep(1.2)
-    st.rerun()
+        # Execute automated location message, voice call, and SMS
+        call_res = notify.trigger_emergency_call(sos_inc, to_phone=dest_phone)
+        sms_res = notify.send_emergency_sms(sos_inc, to_phone=dest_phone)
+        wa_loc_res = notify.send_whatsapp_location(sos_inc, to_phone=dest_phone, address=sos_addr)
+        
+        # Update database status to NO RESPONSE
+        db.update_incident(
+            sos_inc["incident_id"],
+            status="NO RESPONSE",
+            rider_status="NO RESPONSE"
+        )
+        maps_link = wa_loc_res.get('maps_link', f"https://maps.google.com/?q={sos_inc['latitude']},{sos_inc['longitude']}")
+        
+        db.add_incident_message(
+            sos_inc["incident_id"],
+            "System",
+            f"🚨 10-Second Auto-Timer Expired (NO RESPONSE): Emergency Location Message & Voice Call placed to {dest_phone}. "
+            f"GPS: ({sos_inc['latitude']}, {sos_inc['longitude']}) | Map: {maps_link}"
+        )
+        st.session_state["sos_timer_active"] = False
+        st.session_state["sos_start_time"] = None
+        st.session_state["sos_call_result"] = call_res
+        st.session_state["wa_location_result"] = wa_loc_res
+        time.sleep(1.2)
+        st.rerun()
 
 
 # --- TOP KPI METRICS ROW ---
 total_incidents = len(incidents)
-active_emergencies = len([i for i in incidents if i["status"] in ["REPORTED", "DISPATCHED"] and i["rider_status"] in ["NEED HELP", "NO RESPONSE"]])
+active_emergencies = len([i for i in incidents if (i["status"] in ["REPORTED", "DISPATCHED", "NO RESPONSE"]) or (i["rider_status"] in ["NEED HELP", "NO RESPONSE"])])
 high_conf_count = len([i for i in incidents if i["confidence"] >= 70.0])
-dispatched_count = len([i for i in incidents if i["status"] == "DISPATCHED"])
+dispatched_count = len([i for i in incidents if i["status"] in ["DISPATCHED", "NO RESPONSE"]])
 
 col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 with col_m1:
@@ -957,11 +1040,18 @@ with left_col:
     rider_status_class = "badge-need-help" if current_incident['rider_status'] == "NEED HELP" else (
         "badge-no-response" if current_incident['rider_status'] == "NO RESPONSE" else "badge-ok"
     )
+    workflow_status_class = (
+        "badge-no-response" if current_incident['status'] == "NO RESPONSE" else (
+            "badge-need-help" if current_incident['status'] == "REPORTED" else (
+                "badge-dispatched" if current_incident['status'] == "DISPATCHED" else "badge-ok"
+            )
+        )
+    )
     
     st.markdown(f"""
         <div style="display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
             <span class="badge {rider_status_class}">Rider Status: {current_incident['rider_status']}</span>
-            <span class="badge badge-dispatched">Workflow Status: {current_incident['status']}</span>
+            <span class="badge {workflow_status_class}">Workflow Status: {current_incident['status']}</span>
             <span class="badge" style="background:#374151; color:#e5e7eb;">Language: {current_incident['language']}</span>
         </div>
     """, unsafe_allow_html=True)
@@ -1049,6 +1139,7 @@ with left_col:
         if st.button("⏱️ 10s Location SOS", use_container_width=True, help="Arm 10-second automatic emergency location message & voice call timer for this incident"):
             st.session_state["sos_timer_active"] = True
             st.session_state["sos_incident_id"] = current_incident["incident_id"]
+            st.session_state["sos_start_time"] = time.time()
             st.session_state["sos_cancelled"] = False
             st.session_state["sos_call_result"] = None
             st.session_state["wa_location_result"] = None

@@ -58,6 +58,7 @@ class MainActivity : Activity(), SensorEventListener {
     private var longitude = 0.0
     private var activeIncidentId: String? = null
     private var lastLocationSentAt = 0L
+    private var lastRecordedLocation: Location? = null
     private var sosCountdownTimer: CountDownTimer? = null
     private var sosDialog: AlertDialog? = null
     private var sosCancelledRecently = false
@@ -607,8 +608,23 @@ class MainActivity : Activity(), SensorEventListener {
     }
 
     private fun onLocationChanged(location: Location) {
+        val prev = lastRecordedLocation
+        var gpsSpeed = if (location.hasSpeed() && location.speed > 0f) {
+            (location.speed * 3.6f).coerceAtLeast(0f)
+        } else {
+            0f
+        }
+        if (gpsSpeed == 0f && prev != null) {
+            val dist = location.distanceTo(prev)
+            val timeSec = (location.time - prev.time) / 1000.0f
+            if (timeSec in 0.5f..15f && dist > 1.0f) {
+                gpsSpeed = ((dist / timeSec) * 3.6f).coerceIn(0f, 220f)
+            }
+        }
+        lastRecordedLocation = location
+
         previousSpeedKmh = speedKmh
-        speedKmh = (location.speed * 3.6f).coerceAtLeast(0f)
+        speedKmh = gpsSpeed
         latitude = location.latitude
         longitude = location.longitude
         if (::locationView.isInitialized) {

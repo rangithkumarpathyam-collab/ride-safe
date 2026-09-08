@@ -44,7 +44,9 @@ class IncidentRequest(BaseModel):
         default="Possible crash detected. Please send help to my location.",
         max_length=500,
     )
+    rider_status: Optional[str] = Field(default=None)
     trigger_call: bool = Field(default=True)
+    auto_dispatch: bool = Field(default=True)
     emergency_phone: Optional[str] = Field(default=None, max_length=40)
 
 
@@ -78,54 +80,65 @@ def create_incident(payload: IncidentRequest, authorization: Optional[str] = Hea
         [sample.model_dump() for sample in payload.samples],
         vehicle_type=payload.vehicle_type,
     )
-    rider_status = "NEED HELP" if detection["accident_detected"] else "PENDING_CHECK"
+    
+    geo_res = geo.reverse_geocode(payload.latitude, payload.longitude)
+    address = geo_res.get("formatted_address") or f"Zone ({payload.latitude}, {payload.longitude})"
 
-    geo_info = geo.reverse_geocode(payload.latitude, payload.longitude)
-    address = geo_info.get("formatted_address") or f"Zone ({payload.latitude}, {payload.longitude})"
+    final_rider_status = payload.rider_status or ("NEED HELP" if detection["accident_detected"] else "PENDING_CHECK")
+    final_status = "NO RESPONSE" if final_rider_status == "NO RESPONSE" else ("REPORTED" if detection["accident_detected"] else "RESOLVED")
 
     incident_id = db.create_incident(
         vehicle_type=payload.vehicle_type,
         latitude=payload.latitude,
         longitude=payload.longitude,
         confidence=detection["confidence"],
-        rider_status=rider_status,
+        rider_status=final_rider_status,
         language=payload.language,
         message=payload.message,
-        status="REPORTED",
+        status=final_status,
+        address=address,
     )
 
     emergency_call_result = None
     sms_result = None
-    target_phone = payload.emergency_phone or notify.EMERGENCY_DISPATCH_PHONE
+    wa_result = None
+    target_phone = payload.emergency_phone or notify.EMERGENCY_DISPATCH_PHONE or "+917416960828"
 
-    # Trigger Twilio Voice Call and SMS if requested (default True for emergency dispatch)
-    if payload.trigger_call:
+    should_dispatch = (payload.trigger_call or payload.auto_dispatch) and (
+        detection["accident_detected"] or final_rider_status in ["NEED HELP", "NO RESPONSE"]
+    )
+    if should_dispatch:
         incident_data = {
             "incident_id": incident_id,
             "vehicle_type": payload.vehicle_type,
             "confidence": detection["confidence"],
             "latitude": payload.latitude,
             "longitude": payload.longitude,
-            "rider_status": rider_status,
+            "rider_status": final_rider_status,
             "city": address,
+            "address": address,
+            "status": final_status,
         }
         emergency_call_result = notify.trigger_emergency_call(incident_data, to_phone=target_phone)
         sms_result = notify.send_emergency_sms(incident_data, to_phone=target_phone)
-        notify.send_whatsapp_location(incident_data, to_phone=target_phone, address=address)
+        wa_result = notify.send_whatsapp_location(incident_data, to_phone=target_phone, address=address)
 
         call_status = "Dispatched" if emergency_call_result.get("success") else f"Notice ({emergency_call_result.get('error')})"
+        maps_link = wa_result.get('maps_link', f"https://maps.google.com/?q={payload.latitude},{payload.longitude}")
         db.add_incident_message(
             incident_id,
             "System",
-            f"📞 Automated Emergency Call to {target_phone}: {call_status} (SID: {emergency_call_result.get('sid', 'N/A')})"
+            f"📞 Automated Emergency Call to {target_phone}: {call_status} (SID: {emergency_call_result.get('sid', 'N/A')}) | Map: {maps_link}"
         )
 
     return {
         "incident_id": incident_id,
-        "rider_status": rider_status,
+        "rider_status": final_rider_status,
+        "status": final_status,
         "address": address,
         "emergency_call": emergency_call_result,
         "sms": sms_result,
+        "whatsapp": wa_result,
         "target_phone": target_phone,
         "detection": {
             "accident_detected": detection["accident_detected"],
@@ -134,6 +147,11 @@ def create_incident(payload: IncidentRequest, authorization: Optional[str] = Hea
             "severity": detection["severity"],
             "confirmations": detection["confirmations"],
             "confirmation_reason": detection["confirmation_reason"],
+        },
+        "twilio_dispatch": {
+            "call": emergency_call_result,
+            "sms": sms_result,
+            "whatsapp": wa_result,
         },
     }
 

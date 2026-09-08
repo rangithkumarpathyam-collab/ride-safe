@@ -15,9 +15,10 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
-        // USB-connected physical phone uses adb reverse to reach the host API.
-        buildConfigField("String", "API_BASE_URL", "\"http://127.0.0.1:8000\"")
+        // Local network / Wi-Fi IP of the host machine running the FastAPI backend
+        buildConfigField("String", "API_BASE_URL", "\"http://10.88.216.167:8000\"")
         buildConfigField("String", "API_TOKEN", "\"\"")
+        buildConfigField("String", "EMERGENCY_PHONE", "\"+917416960828\"")
     }
 
     buildFeatures {
