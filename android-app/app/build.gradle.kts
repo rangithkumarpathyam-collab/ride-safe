@@ -26,6 +26,8 @@ val twilioSid = envProperties.getProperty("TWILIO_ACCOUNT_SID") ?: ""
 val twilioToken = envProperties.getProperty("TWILIO_AUTH_TOKEN") ?: ""
 val twilioFrom = envProperties.getProperty("TWILIO_PHONE_NUMBER") ?: ""
 val emergencyPhone = envProperties.getProperty("EMERGENCY_DISPATCH_PHONE") ?: "+917416960828"
+val apiToken = envProperties.getProperty("SAFERIDE_API_TOKEN") ?: ""
+val apiBaseUrl = envProperties.getProperty("API_BASE_URL") ?: "https://your-backend-service.onrender.com"
 
 android {
     namespace = "com.saferide.rider"
@@ -37,9 +39,9 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
-        // Local network / Wi-Fi IP of the host machine running the FastAPI backend
-        buildConfigField("String", "API_BASE_URL", "\"http://10.5.9.106:8000\"")
-        buildConfigField("String", "API_TOKEN", "\"\"")
+        // Cloud-hosted FastAPI backend URL, or a local override if the developer set one.
+        buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+        buildConfigField("String", "API_TOKEN", "\"$apiToken\"")
         buildConfigField("String", "EMERGENCY_PHONE", "\"$emergencyPhone\"")
         buildConfigField("String", "TWILIO_ACCOUNT_SID", "\"$twilioSid\"")
         buildConfigField("String", "TWILIO_AUTH_TOKEN", "\"$twilioToken\"")

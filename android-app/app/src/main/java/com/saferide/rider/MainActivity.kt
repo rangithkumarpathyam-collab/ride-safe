@@ -919,7 +919,7 @@ class MainActivity : Activity(), SensorEventListener {
                     curLat, curLon, speedKmh + 15f, speedKmh, peakG, tiltDegrees, incidentType, targetPhone
                 )
                 val primaryUrl = getApiBaseUrl()
-                val candidateUrls = listOf(primaryUrl, "http://127.0.0.1:8000", "http://10.5.9.106:8000")
+                val candidateUrls = listOf(primaryUrl, ApiClient.BASE_URL, "http://127.0.0.1:8000", "http://10.5.9.106:8000")
                 for (baseUrl in candidateUrls) {
                     try {
                         val connection = URL("$baseUrl/api/v1/incidents").openConnection() as HttpURLConnection
@@ -928,6 +928,9 @@ class MainActivity : Activity(), SensorEventListener {
                         connection.readTimeout = 4000
                         connection.doOutput = true
                         connection.setRequestProperty("Content-Type", "application/json")
+                        if (BuildConfig.API_TOKEN.isNotBlank()) {
+                            connection.setRequestProperty("Authorization", "Bearer ${BuildConfig.API_TOKEN}")
+                        }
                         connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
                         if (connection.responseCode in 200..299) {
                             val res = connection.inputStream.bufferedReader().use { it.readText() }
