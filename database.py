@@ -16,7 +16,7 @@ Schema:
       language (TEXT)      # 'Telugu', 'English'
       message (TEXT)       # Primary/latest message
       status (TEXT)        # 'REPORTED', 'DISPATCHED', 'RESOLVED', 'CLOSED'
-  
+
   - incident_messages table:
       message_id (INTEGER PRIMARY KEY AUTOINCREMENT)
       incident_id (TEXT, FOREIGN KEY)
@@ -29,16 +29,22 @@ Schema:
 import os
 import uuid
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from sqlalchemy import create_engine
 
 load_dotenv()
 
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "saferide.db")
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+
+try:
+    SQLALCHEMY_ENGINE = create_engine(DATABASE_URL) if DATABASE_URL else None
+except Exception:
+    SQLALCHEMY_ENGINE = None
 
 
 def get_connection(db_path: str = DB_FILE):
@@ -50,7 +56,7 @@ def get_connection(db_path: str = DB_FILE):
     if not DATABASE_URL:
         raise RuntimeError(
             "DATABASE_URL must be set for the PostgreSQL backend. "
-            "Example: postgresql://user:pass@host:5432/dbname"
+            "Example: postgresql://postgres:password@db.<ref>.supabase.co:5432/postgres"
         )
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
