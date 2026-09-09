@@ -1,7 +1,7 @@
 """
 SafeRide AI - Module 2: Backend Database Layer (database.py)
 -----------------------------------------------------------
-SQLite relational database storage for emergency incident records,
+PostgreSQL relational database storage for emergency incident records,
 rider statuses, GPS coordinates, and multilingual communication threads.
 
 Schema:
@@ -26,20 +26,33 @@ Schema:
       timestamp (TEXT)
 """
 
-import sqlite3
 import os
 import uuid
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
+from dotenv import load_dotenv
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+load_dotenv()
+
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "saferide.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 
 
-def get_connection(db_path: str = DB_FILE) -> sqlite3.Connection:
-    """Returns a SQLite connection with row factory configured."""
-    conn = sqlite3.connect(db_path, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
+def get_connection(db_path: str = DB_FILE):
+    """Return a PostgreSQL connection using the DATABASE_URL environment variable.
+
+    The db_path argument is preserved for compatibility with the legacy public API
+    but is ignored because PostgreSQL connections come from DATABASE_URL.
+    """
+    if not DATABASE_URL:
+        raise RuntimeError(
+            "DATABASE_URL must be set for the PostgreSQL backend. "
+            "Example: postgresql://user:pass@host:5432/dbname"
+        )
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 
 def init_db(db_path: str = DB_FILE, seed_sample_data: bool = True) -> None:
@@ -47,15 +60,14 @@ def init_db(db_path: str = DB_FILE, seed_sample_data: bool = True) -> None:
     conn = get_connection(db_path)
     cursor = conn.cursor()
 
-    # Create incidents table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS incidents (
             incident_id TEXT PRIMARY KEY,
             timestamp TEXT NOT NULL,
             vehicle_type TEXT NOT NULL,
-            latitude REAL NOT NULL,
-            longitude REAL NOT NULL,
-            confidence REAL NOT NULL,
+            latitude DOUBLE PRECISION NOT NULL,
+            longitude DOUBLE PRECISION NOT NULL,
+            confidence DOUBLE PRECISION NOT NULL,
             rider_status TEXT NOT NULL DEFAULT 'PENDING_CHECK',
             language TEXT NOT NULL DEFAULT 'Telugu',
             message TEXT DEFAULT '',
@@ -64,32 +76,28 @@ def init_db(db_path: str = DB_FILE, seed_sample_data: bool = True) -> None:
         )
     """)
 
-    # Ensure address column exists for existing databases
-    cursor.execute("PRAGMA table_info(incidents)")
-    cols = [col[1] for col in cursor.fetchall()]
-    if "address" not in cols:
-        cursor.execute("ALTER TABLE incidents ADD COLUMN address TEXT DEFAULT ''")
-
-    # Create incident_messages table for live chat
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS incident_messages (
-            message_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            message_id SERIAL PRIMARY KEY,
             incident_id TEXT NOT NULL,
             sender TEXT NOT NULL,
             original_text TEXT NOT NULL,
             translated_text TEXT DEFAULT '',
             timestamp TEXT NOT NULL,
-            FOREIGN KEY (incident_id) REFERENCES incidents (incident_id) ON DELETE CASCADE
+            CONSTRAINT fk_incident_messages_incident
+                FOREIGN KEY (incident_id) REFERENCES incidents (incident_id) ON DELETE CASCADE
         )
     """)
 
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_incidents_timestamp ON incidents(timestamp DESC)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_incident_messages_incident_id ON incident_messages(incident_id)")
+
     conn.commit()
 
-    # Seed initial demo data if database is newly initialized
     if seed_sample_data:
-        cursor.execute("SELECT COUNT(*) FROM incidents")
-        count = cursor.fetchone()[0]
-        if count == 0:
+        cursor.execute("SELECT COUNT(*) AS c FROM incidents")
+        row = cursor.fetchone()
+        if row and int(row["c"]) == 0:
             seed_initial_data(conn)
 
     conn.close()
@@ -112,7 +120,7 @@ def create_incident(
     """Creates a new accident incident record."""
     if not incident_id:
         incident_id = f"INC-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
-    
+
     if not timestamp:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -123,17 +131,16 @@ def create_incident(
         INSERT INTO incidents (
             incident_id, timestamp, vehicle_type, latitude, longitude,
             confidence, rider_status, language, message, status, address
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """, (
         incident_id, timestamp, vehicle_type, latitude, longitude,
         confidence, rider_status, language, message, status, address
     ))
 
-    # Add initial incident message if provided
     if message:
         cursor.execute("""
             INSERT INTO incident_messages (incident_id, sender, original_text, translated_text, timestamp)
-            VALUES (?, 'Rider', ?, '', ?)
+            VALUES (%s, 'Rider', %s, '', %s)
         """, (incident_id, message, timestamp))
 
     conn.commit()
@@ -153,19 +160,19 @@ def update_incident(incident_id: str, db_path: str = DB_FILE, **kwargs) -> bool:
         "timestamp", "vehicle_type", "latitude", "longitude",
         "confidence", "rider_status", "language", "message", "status", "address"
     }
-    
+
     fields = []
     values = []
     for k, v in kwargs.items():
         if k in allowed_fields:
-            fields.append(f"{k} = ?")
+            fields.append(f"{k} = %s")
             values.append(v)
 
     if not fields:
         return False
 
     values.append(incident_id)
-    query = f"UPDATE incidents SET {', '.join(fields)} WHERE incident_id = ?"
+    query = f"UPDATE incidents SET {', '.join(fields)} WHERE incident_id = %s"
 
     conn = get_connection(db_path)
     cursor = conn.cursor()
@@ -180,7 +187,7 @@ def get_incident(incident_id: str, db_path: str = DB_FILE) -> Optional[Dict[str,
     """Retrieves a single incident by its ID as a dictionary."""
     conn = get_connection(db_path)
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM incidents WHERE incident_id = ?", (incident_id,))
+    cursor.execute("SELECT * FROM incidents WHERE incident_id = %s", (incident_id,))
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -190,7 +197,7 @@ def get_all_incidents(limit: int = 50, db_path: str = DB_FILE) -> List[Dict[str,
     """Retrieves all incidents sorted by most recent first."""
     conn = get_connection(db_path)
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM incidents ORDER BY timestamp DESC LIMIT ?", (limit,))
+    cursor.execute("SELECT * FROM incidents ORDER BY timestamp DESC LIMIT %s", (limit,))
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
@@ -210,18 +217,20 @@ def add_incident_message(
 
     cursor.execute("""
         INSERT INTO incident_messages (incident_id, sender, original_text, translated_text, timestamp)
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s)
+        RETURNING message_id
     """, (incident_id, sender, original_text, translated_text, ts))
 
-    # Also update the latest message on the parent incident record
+    row = cursor.fetchone()
+    msg_id = row["message_id"] if row else 0
+
     cursor.execute("""
-        UPDATE incidents SET message = ? WHERE incident_id = ?
+        UPDATE incidents SET message = %s WHERE incident_id = %s
     """, (original_text, incident_id))
 
     conn.commit()
-    msg_id = cursor.lastrowid
     conn.close()
-    return msg_id
+    return int(msg_id)
 
 
 def get_incident_messages(incident_id: str, db_path: str = DB_FILE) -> List[Dict[str, Any]]:
@@ -230,7 +239,7 @@ def get_incident_messages(incident_id: str, db_path: str = DB_FILE) -> List[Dict
     cursor = conn.cursor()
     cursor.execute("""
         SELECT * FROM incident_messages
-        WHERE incident_id = ?
+        WHERE incident_id = %s
         ORDER BY message_id ASC
     """, (incident_id,))
     rows = cursor.fetchall()
@@ -238,7 +247,7 @@ def get_incident_messages(incident_id: str, db_path: str = DB_FILE) -> List[Dict
     return [dict(row) for row in rows]
 
 
-def seed_initial_data(conn: sqlite3.Connection) -> None:
+def seed_initial_data(conn) -> None:
     """Pre-populates realistic incident records for immediate demo readiness."""
     cursor = conn.cursor()
 
@@ -248,11 +257,11 @@ def seed_initial_data(conn: sqlite3.Connection) -> None:
             "2026-09-07 10:15:20",
             "Motorcycle",
             17.4435,
-            78.3772,  # Hitec City, Hyderabad
+            78.3772,
             94.5,
             "NEED HELP",
             "Telugu",
-            "నా కాలు బైక్ కింద ఇరుక్కుపోయింది, వెంటనే సహాయం కావాలి.",
+            "?? ???? ???? ???? ??????????????, ?????? ????? ??????.",
             "REPORTED"
         ),
         (
@@ -260,11 +269,11 @@ def seed_initial_data(conn: sqlite3.Connection) -> None:
             "2026-09-07 09:42:10",
             "Scooter",
             17.4156,
-            78.4350,  # Banjara Hills, Hyderabad
+            78.4350,
             72.8,
             "NO RESPONSE",
             "Telugu",
-            "క్రాష్ హెచ్చరిక: 10 సెకన్ల పాటు రైడర్ నుండి సమాధానం రాలేదు.",
+            "?????? ????????: 10 ?????? ???? ????? ????? ??????? ??????.",
             "DISPATCHED"
         ),
         (
@@ -272,7 +281,7 @@ def seed_initial_data(conn: sqlite3.Connection) -> None:
             "2026-09-07 08:30:45",
             "Electric Bike",
             17.4239,
-            78.3374,  # Gachibowli, Hyderabad
+            78.3374,
             42.0,
             "I'M OK",
             "English",
@@ -285,28 +294,27 @@ def seed_initial_data(conn: sqlite3.Connection) -> None:
         INSERT INTO incidents (
             incident_id, timestamp, vehicle_type, latitude, longitude,
             confidence, rider_status, language, message, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """, demo_incidents)
 
-    # Prepopulate message threads for the active incident
     messages = [
-        ("INC-2026-HYD-001", "Rider", "నా కాలు బైక్ కింద ఇరుక్కుపోయింది, వెంటనే సహాయం కావాలి.", "My leg is stuck under the bike, need help immediately.", "2026-09-07 10:15:22"),
-        ("INC-2026-HYD-001", "Responder", "Help is on the way. Ambulance dispatched from Cyberabad Emergency Center.", "సహాయం దారిలో ఉంది. సైబరాబాద్ అత్యవసర కేంద్రం నుండి అంబులెన్స్ పంపబడింది.", "2026-09-07 10:16:05"),
-        ("INC-2026-HYD-001", "Rider", "చాలా రక్తం వస్తోంది, త్వరగా రండి.", "Bleeding heavily, please come fast.", "2026-09-07 10:16:40"),
-        ("INC-2026-HYD-002", "System", "Emergency trigger: Unresponsive rider after 10-second safety prompt.", "ఎమర్జెన్సీ ట్రిగ్గర్: 10 సెకన్ల భద్రతా ప్రాంప్ట్ తర్వాత రైడర్ స్పందించలేదు.", "2026-09-07 09:42:20"),
-        ("INC-2026-HYD-002", "Responder", "Emergency team dispatched with GPS tracking to Banjara Hills location.", "బంజారాహిల్స్ లొకేషన్‌కు జీపీఎస్ ట్రాకింగ్‌తో అత్యవసర బృందం పంపబడింది.", "2026-09-07 09:43:10")
+        ("INC-2026-HYD-001", "Rider", "?? ???? ???? ???? ??????????????, ?????? ????? ??????.", "My leg is stuck under the bike, need help immediately.", "2026-09-07 10:15:22"),
+        ("INC-2026-HYD-001", "Responder", "Help is on the way. Ambulance dispatched from Cyberabad Emergency Center.", "????? ?????? ????. ????????? ??????? ??????? ????? ?????????? ?????????.", "2026-09-07 10:16:05"),
+        ("INC-2026-HYD-001", "Rider", "???? ????? ????????, ?????? ????.", "Bleeding heavily, please come fast.", "2026-09-07 10:16:40"),
+        ("INC-2026-HYD-002", "System", "Emergency trigger: Unresponsive rider after 10-second safety prompt.", "?????????? ?????????: 10 ?????? ?????? ????????? ?????? ????? ????????????.", "2026-09-07 09:42:20"),
+        ("INC-2026-HYD-002", "Responder", "Emergency team dispatched with GPS tracking to Banjara Hills location.", "???????????? ?????????? ??????? ???????????? ??????? ????? ?????????.", "2026-09-07 09:43:10")
     ]
 
     cursor.executemany("""
         INSERT INTO incident_messages (incident_id, sender, original_text, translated_text, timestamp)
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s)
     """, messages)
 
     conn.commit()
 
 
 if __name__ == "__main__":
-    print("Initializing database...")
+    print("Initializing PostgreSQL database...")
     init_db()
     records = get_all_incidents()
     print(f"Database ready! Loaded {len(records)} incidents.")
