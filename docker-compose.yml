@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  saferide-api:
+    build: .
+    container_name: saferide-api
+    ports:
+      - "8000:8000"
+    environment:
+      - SAFERIDE_API_TOKEN=${SAFERIDE_API_TOKEN:-}
+      - GEOAPIFY_API_KEY=${GEOAPIFY_API_KEY:-}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-}
+    command: python -m uvicorn api:app --host 0.0.0.0 --port 8000
+
+  saferide-dashboard:
+    build: .
+    container_name: saferide-dashboard
+    ports:
+      - "8502:8502"
+    environment:
+      - SAFERIDE_API_TOKEN=${SAFERIDE_API_TOKEN:-}
+      - GEOAPIFY_API_KEY=${GEOAPIFY_API_KEY:-}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-}
+    command: streamlit run app.py --server.address 0.0.0.0 --server.port 8502
